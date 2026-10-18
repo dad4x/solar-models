@@ -1,5 +1,16 @@
 # solar-models
 
+Visualized and comparator for solar array concepts for ground mount solar.  Runs in a browser on desktop or phone.
+This is suitable for conceptual comparisons of array layouts, but the absolute output values are probably not trustworthy.
+
+This let's you adjust the angles and spacing, and see the effect of mutual shading over the course of a day and year.
+
+You can set up to 8 arrays, 4 vertical and 4 horizontal with varying panel count, spacing and location.
+
+It tries to model bifacial panels over a bed of white crushed marble; this can be adjusted, somewhat.
+
+permalink to current:  https://dad4x.github.io/solar-models/array_shading_render.html
+
 Array shading and output renders for a ground-mounted bifacial PV layout. Open `array_shading_render.html` in a browser; there is nothing to install.
 
 ## What it shows
