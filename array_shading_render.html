@@ -29,15 +29,14 @@ table.knobs input[type=number]{width:58px;font:inherit}
 .kc input.kr{width:100%;margin:0}
 .tw{overflow-x:auto}
 .readout{font-variant-numeric:tabular-nums;font-weight:600;margin:4px 0 6px}
-.views{display:grid;grid-template-columns:1fr 1fr 96px;gap:12px;margin:6px 0 10px;align-items:center}
 .card{background:#fff;border:1px solid var(--line);border-radius:8px;padding:8px}
 .card h2{margin:2px 0 6px;font-size:14px}
 canvas{display:block;width:100%;height:auto;border-radius:6px;touch-action:none;cursor:grab}
-.vwrap{position:relative;width:96px;height:380px}
-.vticks{position:absolute;left:0;top:0;width:52px;height:100%;font-size:11px;color:var(--muted)}
-.vticks span{position:absolute;right:0;transform:translateY(-50%);white-space:nowrap}
-.vtrack{position:absolute;left:58px;top:0;width:36px;height:100%}
-.vtrack input{position:absolute;left:50%;top:50%;width:360px;height:36px;margin:0;transform:translate(-50%,-50%) rotate(90deg)}
+.vwrap{width:100%}
+.vticks{display:flex;justify-content:space-between;font-size:11px;color:var(--muted);padding:0 4px 2px;box-sizing:border-box}
+.vticks span{white-space:nowrap}
+.vtrack{width:100%}
+.vtrack input{width:100%;height:36px;margin:0}
 .daybar{background:#fff;border:1px solid var(--line);border-radius:8px;padding:10px 14px 6px;margin:0 0 10px}
 .dtop{display:flex;justify-content:space-between;align-items:baseline;flex-wrap:wrap;gap:4px 16px;margin-bottom:4px}
 .dlabel{font-weight:600;font-variant-numeric:tabular-nums;margin-bottom:4px}
@@ -63,7 +62,7 @@ table.cmp th,table.cmp td{padding:3px 8px;border-bottom:1px solid var(--line);te
 table.cmp th:first-child,table.cmp td:first-child{text-align:left}
 .diff{color:#b42318;font-weight:600}
 .tip{position:fixed;display:none;pointer-events:none;z-index:20;background:rgba(29,36,48,.95);color:#fff;font:12px/1.45 system-ui,-apple-system,"Segoe UI",sans-serif;padding:6px 9px;border-radius:6px;white-space:nowrap;box-shadow:0 2px 8px rgba(0,0,0,.25)}
-@media (max-width:820px){.views{grid-template-columns:1fr}.vwrap{margin:0 auto}.strip{grid-template-columns:repeat(2,1fr)}}
+@media (max-width:820px){.strip{grid-template-columns:repeat(2,1fr)}}
 /* Layout for phones and wide screens, boxes that collapse, the season markers, and help popups. */
 main{max-width:1520px}
 .box{background:#fff;border:1px solid var(--line);border-radius:8px;margin:0 0 10px;min-width:0}
@@ -83,21 +82,11 @@ legend .tog{margin-right:2px}
 .info:hover,.info:focus-visible,.info[aria-expanded="true"]{background:var(--accent);color:#fff;outline:none}
 h1 .info{width:20px;height:20px;font-size:12px;margin-left:8px}
 .pop{position:fixed;z-index:60;display:none;max-width:min(360px,92vw);max-height:60vh;overflow:auto;background:rgba(29,36,48,.96);color:#fff;font:12px/1.5 system-ui,-apple-system,"Segoe UI",sans-serif;padding:9px 11px;border-radius:8px;box-shadow:0 4px 14px rgba(0,0,0,.25);pointer-events:none}
-.stage{display:flex;flex-direction:column;gap:10px;margin:6px 0 10px}
-.stage.wide{display:grid;grid-template-columns:minmax(0,270px) minmax(0,1fr) 96px minmax(0,1fr) minmax(0,270px);gap:12px;align-items:start}
+.stage{display:flex;flex-direction:column;gap:10px;margin:6px auto 10px;max-width:1000px}
 .stage.off-o #ctrlO,.stage.off-a #ctrlA{display:none}
-.stage.wide .ctrl > .bbody{max-height:78vh;overflow-y:auto}
 .view .bbody{padding:6px}
 .view canvas{width:100%;height:auto}
 .timebox .bbody{padding:6px 8px}
-.stage.wide .timebox .bbody{padding:6px 0}
-.stage.wide .timebox .btitle{display:none}
-.stage.wide .vwrap{margin:0 auto}
-.stage:not(.wide) .vwrap{position:static;width:100%;height:auto;margin:0}
-.stage:not(.wide) .vticks{position:static;width:100%;height:auto;display:flex;justify-content:space-between;padding:0 4px 2px;box-sizing:border-box}
-.stage:not(.wide) .vticks span{position:static;transform:none;right:auto}
-.stage:not(.wide) .vtrack{position:static;width:100%;height:auto}
-.stage:not(.wide) .vtrack input{position:static;transform:none;width:100%;height:36px;margin:0}
 .fields{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:8px 10px}
 .fld{display:flex;flex-direction:column;gap:3px;font-size:12px;color:var(--muted);min-width:0}
 .fld > span{color:var(--ink)}
@@ -190,16 +179,6 @@ h1 .info{width:20px;height:20px;font-size:12px;margin-left:8px}
 <div class="vtrack"><input id="time" type="range" min="6" max="21" step="0.25" value="9"></div>
 </div></div>
 </section>
-<section class="box view" id="boxA">
-<div class="bhead"><button class="tog" type="button" data-tog="boxA"></button><h2 class="btitle" id="capA">Alternative</h2></div>
-<div class="bbody"><canvas id="cA" width="640" height="460"></canvas></div>
-</section>
-<section class="box ctrl" id="ctrlA">
-<div class="bhead"><button class="tog" type="button" data-tog="ctrlA"></button><span class="btitle">Alternative: rows (defaults = inner rows 2 ft up, north row with them, south kept)</span><button class="info" type="button" data-help="rows" aria-label="Help: rows">i</button></div>
-<div class="bbody"><p class="note modinfo" id="modA"></p><div id="knobsA"></div></div>
-</section>
-</div>
-
 <section class="box daybox" id="boxDay">
 <div class="bhead"><button class="tog" type="button" data-tog="boxDay"></button><span class="dlabel btitle" id="dateLabel"></span><span class="season" id="seasonLabel"></span><span class="ylabel" id="yearLabel"></span><button class="info" type="button" data-help="day" aria-label="Help: monthly totals">i</button></div>
 <div class="bbody">
@@ -210,6 +189,15 @@ h1 .info{width:20px;height:20px;font-size:12px;margin-left:8px}
 </div>
 </div>
 </section>
+<section class="box view" id="boxA">
+<div class="bhead"><button class="tog" type="button" data-tog="boxA"></button><h2 class="btitle" id="capA">Alternative</h2></div>
+<div class="bbody"><canvas id="cA" width="640" height="460"></canvas></div>
+</section>
+<section class="box ctrl" id="ctrlA">
+<div class="bhead"><button class="tog" type="button" data-tog="ctrlA"></button><span class="btitle">Alternative: rows (defaults = inner rows 2 ft up, north row with them, south kept)</span><button class="info" type="button" data-help="rows" aria-label="Help: rows">i</button></div>
+<div class="bbody"><p class="note modinfo" id="modA"></p><div id="knobsA"></div></div>
+</section>
+</div>
 
 <div class="legend">
 <span><i class="sw" style="background:#f0c040"></i>sunlit</span>
@@ -841,9 +829,8 @@ if (typeof document !== 'undefined') {
       return '<span class="' + cls.trim() + '" style="left:' + pct.toFixed(2) + '%">' + s.date + '<br>' + s.kind + '</span>';
     }).join('');
   }
-  // Collapsible boxes. A view's arrow hides that view and its controls, so the other view goes full width; at least one view
-  // stays open. On a wide screen the stage is one row of five (controls, plan view, time, alternative view, controls);
-  // otherwise it is one column in that order.
+  // Collapsible boxes. A view's arrow hides that view and its controls; at least one view stays open. The stage is one
+  // column: original controls, original view, time, day, alternative view, alternative controls.
   function toggleBox(id) {
     var box = $(id), isView = id === 'boxO' || id === 'boxA', other = id === 'boxO' ? 'boxA' : 'boxO';
     if (isView && !box.classList.contains('collapsed') && $(other).classList.contains('collapsed')) return;
@@ -851,22 +838,20 @@ if (typeof document !== 'undefined') {
     layoutStage();
   }
   function layoutStage() {
-    var stage = $('stage'), oOff = $('boxO').classList.contains('collapsed'), aOff = $('boxA').classList.contains('collapsed');
-    var wideScreen = typeof window !== 'undefined' && window.matchMedia ? window.matchMedia('(min-width: 900px)').matches : true;
-    stage.classList.toggle('off-o', oOff);
-    stage.classList.toggle('off-a', aOff);
-    stage.classList.toggle('wide', !oOff && !aOff && wideScreen);
+    var stage = $('stage');
+    stage.classList.toggle('off-o', $('boxO').classList.contains('collapsed'));
+    stage.classList.toggle('off-a', $('boxA').classList.contains('collapsed'));
   }
   // Help text, shown from the (i) buttons: on hover with a mouse, and on a click or tap. A click again, Escape, or a click
   // elsewhere closes a pinned popup.
   var HELP = {
-    about: "Left: the original, with rows as drawn at the defaults (44 modules). Right: the alternative at its defaults (inner rows 2 ft above the outer rows, north row with them, south row kept). Each row has an On box, a panel count, and sliders for base, tilt, gap, and its position on graph paper: right (east) and up (north) from the origin 0,0 at the south-west corner of the sketch, 0 to 50 ft, with the defaults at the baseline locations. North and south rows also take a height difference. The inner north and south rows are off by default. The sun path comes from the location, so the same page serves another site: set the location, the site inputs, and the rows, then save a scenario. Hover a panel for its front and back estimated output. The line under the date and time on each view gives the array's output now and for the selected day. Red outline = module top above the height cap. Gold = sunlit, slate = shaded. Drag a view to orbit it and scroll to zoom. Each box has an arrow to collapse it. On a wide screen, collapsing a view hides it and its controls, and the other view fills the width.",
+    about: "Top: the original, with rows as drawn at the defaults (44 modules). Below it: the alternative at its defaults (inner rows 2 ft above the outer rows, north row with them, south row kept). Each row has an On box, a panel count, and sliders for base, tilt, gap, and its position on graph paper: right (east) and up (north) from the origin 0,0 at the south-west corner of the sketch, 0 to 50 ft, with the defaults at the baseline locations. North and south rows also take a height difference. The inner north and south rows are off by default. The sun path comes from the location, so the same page serves another site: set the location, the site inputs, and the rows, then save a scenario. Hover a panel for its front and back estimated output. The line under the date and time on each view gives the array's output now and for the selected day. Red outline = module top above the height cap. Gold = sunlit, slate = shaded. Drag a view to orbit it and scroll to zoom. Each box has an arrow to collapse it. Collapsing a view hides it and its controls.",
     scenario: "Save writes a .js file with the location, time zone, true north offset, the parameters, and the summary results. Load reads a file back, or paste its text into the box. Files from versions 1 to 7 still load. The comparison shows the saved results next to the current ones.",
     location: "Latitude and longitude as map apps show them, so south and west are negative. Changing either one looks up the time zone, which sets the clock labels and daylight time; the lookup sends only those two numbers to open-meteo.com. You can also type a zone or pick one from the list, which works offline. The zone is saved in each scenario file.",
     north: "The true north offset is the clockwise angle from graph north (the sketch's up) to true north. 0 means the sketch is north-up. Each view's rose shows true north. Turn the rose with its two arrows (15 degrees a click, 1 with shift), or type the offset here. The offset is saved with the scenario.",
     site: "Ground albedo (0.40) is a placeholder; set it for your surface. Bifaciality scales the rear face. Output = irradiance × rating ÷ 1000 × system factor, so the rating is the front STC power over 2.205 m² (22.7% at 500 W). The system factor (0.85) is a placeholder for temperature, soiling, inverter, and wiring losses. The height cap is checked two ways: from the grade under each row, or from the lowest grade on the site. Set the site rise to 0 to remove the slope. The height cap and setbacks are inputs; check them against the local code.",
     rows: "Base = lowest edge above grade (north and south rows: at the row's middle). Height difference = first to last module, + = east higher. Gap = space between modules in a row, in inches. Panels = modules in the row. Right and up place each row's base corner on graph paper, measured from the origin 0,0 at the south-west corner of the sketch; the defaults are the baseline locations. Panels and gap extend an east-west row north, and a north-south row east, from that corner. Turn the inner north and south rows on to try four rows in the north-south direction, with the east-west rows off. All rows moves every row together, right (+E) and up (+N). Each setting has a slider over its number box, with the ranges in the headings; type a value in the box for anything outside a slider's range.",
-    time: "Local clock time in the time zone under Location, with that zone's daylight time for 2026. The slider runs from 6 am (top, or left on a phone) to 9 pm. The sun is computed from apparent solar time, so the time zone changes the clock labels, not the energy.",
+    time: "Local clock time in the time zone under Location, with that zone's daylight time for 2026. The slider runs from 6 am (left) to 9 pm (right). The sun is computed from apparent solar time, so the time zone changes the clock labels, not the energy.",
     day: "Monthly and yearly totals use the 15th of each month, scaled by the days in that month; checked at the default site against every day of the year, each month is within 2% and the year within 0.1%. The markers show the equinoxes and solstices for 2026; an equinox can fall a day earlier or later by time zone.",
     method: "Geometry: row positions are read from your sketch, so measure them to confirm. Each row's base corner is placed from the origin 0,0 on graph paper (east and north positive); the baseline locations are the defaults. Base elevation is the lowest edge above local grade; for the north and south rows it is at the middle of the row, and the height difference runs from the first module to the last, each module level across its own width. Shading uses the sun path for the location, the east wall (if on), and the modules only: no trees, house, or neighbor structures. True north is the sketch's up turned by the true north offset (0 by default), and the sun path follows it. Output is a clear-sky estimate: direct beam, sky diffuse, and ground-reflected light on each face, with the back face scaled by the bifaciality input. Ground reflection is ray-traced from each face to the ground it sees; each ground point is tested for direct sun against the array and the wall, and the sky diffuse reaching that ground is not reduced by the array."
   };
@@ -906,7 +891,7 @@ if (typeof document !== 'undefined') {
   }
   if (typeof window !== 'undefined') {
     window.addEventListener('scroll', renderHelp, true);
-    window.addEventListener('resize', function () { renderHelp(); layoutStage(); });
+    window.addEventListener('resize', renderHelp);
   }
   function num(id, def) {
     var v = parseFloat($(id).value);
@@ -1690,12 +1675,12 @@ if (typeof document !== 'undefined') {
     canvas.addEventListener('pointerleave', hideTip);
   }
 
+  // The time labels under the slider: 6 am at the left, 9 pm at the right.
   function buildVTicks() {
     var h = '';
     [6, 9, 12, 15, 18, 21].forEach(function (t) {
-      var top = 10 + (t - 6) / 15 * 360;
       var lab = t === 12 ? '12 pm' : (t > 12 ? (t - 12) + ' pm' : t + ' am');
-      h += '<span style="top:' + top.toFixed(1) + 'px">' + lab + '</span>';
+      h += '<span>' + lab + '</span>';
     });
     $('vticks').innerHTML = h;
   }
@@ -1785,10 +1770,6 @@ if (typeof document !== 'undefined') {
   $('moduleInfo').textContent = moduleText();
   $('seasons').innerHTML = seasonMarkers();
   layoutStage();
-  if (typeof window !== 'undefined' && window.matchMedia) {
-    var mq = window.matchMedia('(min-width: 900px)');
-    if (mq.addEventListener) mq.addEventListener('change', layoutStage); else if (mq.addListener) mq.addListener(layoutStage);
-  }
   redraw('full');
 })();
 }

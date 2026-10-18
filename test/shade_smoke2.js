@@ -171,13 +171,14 @@ const LOOMIS_YEAR = 'Year, kWh: original 40,437 · alternative 41,087';
   // Collapsing a view hides it and its controls, so the other view goes full width; the last open view stays open.
   const docClick = id => (docListeners.click || []).forEach(fn => fn({ target: { getAttribute: n => (n === 'data-tog' ? id : null) } }));
   docClick('boxO');
-  expectEq('collapsing the original view: its controls hidden, one-column stage',
-    [elements.stage.classList.contains('off-o'), elements.stage.classList.contains('wide')].join(' '), 'true false');
+  expectEq('collapsing the original view hides its controls', elements.stage.classList.contains('off-o'), true);
   docClick('boxA');
   expectEq('the last open view stays open', elements.boxA.classList.contains('collapsed'), false);
   docClick('boxO');
-  expectEq('expanding the original view restores the wide stage',
-    [elements.stage.classList.contains('off-o'), elements.stage.classList.contains('wide')].join(' '), 'false true');
+  expectEq('expanding the original view shows its controls again', elements.stage.classList.contains('off-o'), false);
+  // The stage order: original controls, original view, time, day, alternative view, alternative controls.
+  const stageOrder = ['ctrlO', 'boxO', 'boxT', 'boxDay', 'boxA', 'ctrlA'].map(id => html.indexOf('id="' + id + '"'));
+  expectEq('time and day sliders sit between the two renders', stageOrder.every((p, i) => p > 0 && (i === 0 || p > stageOrder[i - 1])), true);
 
   // Every (i) button in the page has its help text.
   const helpKeys = [...new Set([...html.matchAll(/data-help="(\w+)"/g)].map(m => m[1]))];
