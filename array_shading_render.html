@@ -914,7 +914,7 @@ if (typeof document !== 'undefined') {
     time: "Local clock time in the time zone under Location, with that zone's daylight time for 2026. Drag the cursor on the time graph, or press anywhere on it, to set the clock time: 5 am at the left and 9 pm at the right, which covers sunrise and sunset on June 21 at the default site. The sun is computed from apparent solar time, so the time zone changes the clock labels, not the energy.",
     graph: "The projected output of the selected layout for this day, in kW at each clock time, on a clock scale from 5 am to 9 pm. It comes from the same clear-sky model as the day total, so the area under the curve is the day's output in kWh. Plan and Alternative choose the layout. The orange use line is the day's readings from the use file, in kW on the same clock. Battery for net zero, which needs a complete day of use readings: the peak discharge is the largest quarter-hour shortfall of the array against use, in kW, which is the power a battery must supply at that moment. The storage is the swing of the day's running balance (output minus use, in kWh), from its lowest point to its highest: the most energy a battery must hold at once to cover every shortfall from earlier surplus. A battery moves energy in time; it cannot create it. So the day's net is not the storage. A net import cannot be closed by any battery, and a net export is usually far smaller than the storage, because the house draws at night when the array makes nothing. These figures are ideal: no losses, no power limit, and the day is treated alone.",
     dategraph: "The projected output of the selected layout for each month, in kWh. Each point is the month's total, the number on its monthly label, worked out for the 15th of the month and scaled by the days in the month. The points sit on the day slider's scale; the line between them is a guide. The marker is the selected day, and the reading is its month's total. Plan and Alternative choose the layout for both graphs. The orange use line is the monthly use from the use file, for each month the file completes.",
-    use: "Load the usage file from PG&E: the electric interval CSV, with 15-minute readings. This page reads it in your browser, and nothing is uploaded or saved. The page is public, so keep the file out of the repository. The orange use line on the time graph is the day's readings in kW, on the same clock as the output. The net is use minus the clear-sky output for the same day: + is net import from the grid, − is net export. The summary covers the complete days in the file, a day being complete with 92 or more readings.",
+    use: "Load the usage file from PG&E: the electric interval CSV, with 15-minute readings. This page reads it in your browser, and nothing is uploaded or saved. The page is public, so keep the file out of the repository. The orange use line on the time graph is the day's readings in kW, on the same clock as the output. The net is use minus the clear-sky output for the same day: + is net import from the grid, − is net export. The summary covers the complete days in the file, a day being complete with 92 or more readings. The battery rows over the year take the worst quarter hour and the worst day of the complete days, each day set against its month's clear-sky output (the 15th of the month), so they are an estimate; the day line uses the day's own output.",
     day: "Monthly and yearly totals use the 15th of each month, scaled by the days in that month; checked at the default site against every day of the year, each month is within 2% and the year within 0.1%. Drag the cursor on the date graph, or press anywhere on it, to set the day. The markers show the equinoxes and solstices for 2026; an equinox can fall a day earlier or later by time zone.",
     method: "Geometry: row positions are read from your sketch, so measure them to confirm. Each row's base corner is placed from the origin 0,0 on graph paper (east and north positive); the baseline locations are the defaults. Base elevation is the lowest edge above local grade; for the north and south rows it is at the middle of the row, and the height difference runs from the first module to the last, each module level across its own width. Shading uses the sun path for the location, the east wall (if on), and the modules only: no trees, house, or neighbor structures. True north is the sketch's up turned by the true north offset (0 by default), and the sun path follows it. Output is a clear-sky estimate: direct beam, sky diffuse, and ground-reflected light on each face, with the back face scaled by the bifaciality input. Ground reflection is ray-traced from each face to the ground it sees; each ground point is tested for direct sun against the array and the wall, and the sky diffuse reaching that ground is not reduced by the array."
   };
@@ -1376,15 +1376,15 @@ if (typeof document !== 'undefined') {
   function requestYear(prm, sc) {
     var key = yearKey(prm);
     if (yearC && yearC.key === key) { renderYear(yearC); return; }
-    var st = { key: key, original: [], alternative: [], done: false };
+    var st = { key: key, original: [], alternative: [], originalSeries: [], alternativeSeries: [], done: false };
     yearC = st;
     var id = ++yearId, step = 0, ef = eFactor(prm);
     renderYear(st);
     function next() {
       if (id !== yearId) return;                                   // superseded by a newer change
       var m = Math.floor(step / 2), N = C.dayOfYear(m + 1, 15), days = MDAYS[m];
-      if (step % 2 === 0) st.original.push(C.daily(sc.original, N, prm).kwh * ef * days);
-      else st.alternative.push(C.daily(sc.alternative, N, prm).kwh * ef * days);
+      if (step % 2 === 0) { var d0 = C.daily(sc.original, N, prm); st.original.push(d0.kwh * ef * days); st.originalSeries.push(d0.series); }
+      else { var d1 = C.daily(sc.alternative, N, prm); st.alternative.push(d1.kwh * ef * days); st.alternativeSeries.push(d1.series); }
       step++;
       if (step < 24) setTimeout(next, 0); else st.done = true;
       renderYear(st);
@@ -2167,6 +2167,30 @@ if (typeof document !== 'undefined') {
     renderUse(prm);
     setTimeout(next, 0);
   }
+  // The battery for net zero over the file's complete days. Each day's use is set against its calendar month's clear-sky output
+  // (the profile of the 15th, as the monthly figures use it), so these figures are an estimate; the day line uses the day's own
+  // output. The worst quarter hour over the days gives the peak discharge; the worst day gives the storage. Null until the year
+  // is done. Cached on the year's state, and cleared when the use file changes.
+  function yearlyBattery(st, prm) {
+    if (!st || !st.done || !USE || !st.originalSeries || st.originalSeries.length < 12) return null;
+    if (st._battery && st._batteryUse === useLoads) return st._battery;
+    var res = { plan: { peak: 0, storage: 0 }, alt: { peak: 0, storage: 0 }, days: 0 };
+    usageDays().forEach(function (k) {
+      var day = USE.days[k];
+      if (!completeDay(k) || day.n < 96) return;
+      var m = +k.slice(5, 7) - 1, sh = clockShift(C.dayOfYear(m + 1, 15), prm.site), use = [];
+      for (var s = 0; s < 96; s++) use.push({ t: s * 0.25 + 0.125, kw: (day.kwh[s] || 0) / 0.25 });
+      res.days++;
+      [['plan', st.originalSeries[m]], ['alt', st.alternativeSeries[m]]].forEach(function (w) {
+        var out = w[1].map(function (kw, i) { return { t: i * 0.25 + sh, kw: kw }; }), b = batteryFor(out, use);
+        res[w[0]].peak = Math.max(res[w[0]].peak, b.peakKw);
+        res[w[0]].storage = Math.max(res[w[0]].storage, b.swing);
+      });
+    });
+    st._battery = res.days ? res : null;
+    st._batteryUse = useLoads;
+    return st._battery;
+  }
   // The summary of the use file. Complete months use the year's monthly output (the same figures as the monthly labels); days
   // in partial months use their own clear-sky output. Net is use minus output: + is import from the grid, − is export. The
   // selected day is listed when it is complete in the file.
@@ -2190,12 +2214,17 @@ if (typeof document !== 'undefined') {
     });
     var totUse = mUse + dUse, totPlan = mOut.plan + dOut.plan, totAlt = mOut.alt + dOut.alt;
     var num = function (x) { return ready ? x.toFixed(1) : '…'; }, net = function (x, y) { return ready ? signed(x - y) : '…'; };
+    var yb = yearReady ? yearlyBattery(yearC, prm) : null;
+    var battery = yb ? '<tr><td>Battery peak discharge, kW (worst quarter hour)</td><td>' + yb.plan.peak.toFixed(1) + '</td><td>' +
+      yb.alt.peak.toFixed(1) + '</td></tr><tr><td>Battery storage, kWh (worst day)</td><td>' + yb.plan.storage.toFixed(1) +
+      '</td><td>' + yb.alt.storage.toFixed(1) + '</td></tr>' : '';
     var h = '<div class="note">Complete days in the file: ' + done.length + ' of ' + keys.length + ', ' + fmtDay(keys[0]) +
       ' to ' + fmtDay(keys[keys.length - 1]) + (ready ? '' : ', still computing') + '.</div>' +
       '<table class="cmp"><tr><th>Complete days</th><th>Plan</th><th>Alternative</th></tr>' +
       '<tr><td>Use, kWh</td><td>' + num(totUse) + '</td><td>' + num(totUse) + '</td></tr>' +
       '<tr><td>Output, kWh (clear sky)</td><td>' + num(totPlan) + '</td><td>' + num(totAlt) + '</td></tr>' +
-      '<tr><td>Net, kWh (+ import, − export)</td><td>' + net(totUse, totPlan) + '</td><td>' + net(totUse, totAlt) + '</td></tr></table>';
+      '<tr><td>Net, kWh (+ import, − export)</td><td>' + net(totUse, totPlan) + '</td><td>' + net(totUse, totAlt) + '</td></tr>' +
+      battery + '</table>';
     if (months.length) {
       h += '<table class="cmp"><tr><th>Complete months</th><th>Use, kWh</th><th>Plan output</th><th>Plan net</th>' +
         '<th>Alternative output</th><th>Alternative net</th></tr>' + monthly + '</table>';

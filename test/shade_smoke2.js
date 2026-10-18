@@ -535,6 +535,11 @@ const LOOMIS_YEAR = 'Year, kWh: plan 40,437 · alternative 41,087';
   const novGraph = /^Plan Nov: ([\d,]+) kWh/.exec(novLabel);
   expectEq('the monthly output matches the date graph label',
     !!novRow && !!novGraph && Math.abs(parseFloat(novGraph[1].replace(/,/g, '')) - Math.round(parseFloat(novRow[1]))) <= 1, true);
+  // The year's battery rows: a flat 2.0 kW use with no output at night has a worst quarter hour of 2.0 kW, for both layouts.
+  expectEq('the year battery: a worst quarter hour of 2.0 kW for both layouts',
+    /Battery peak discharge, kW \(worst quarter hour\)<\/td><td>2\.0<\/td><td>2\.0<\/td>/.test(elements.useSum.innerHTML), true);
+  expectEq('the year battery: a storage figure for each layout',
+    /Battery storage, kWh \(worst day\)<\/td><td>[\d.]+<\/td><td>[\d.]+<\/td>/.test(elements.useSum.innerHTML), true);
   expectEq('the date graph has the monthly use line', elements.dgUse.textContent, 'use, kWh per month: from the use file');
   // Hovering the date graph's line: the month under the cursor, with its output and its use, in kWh.
   const dateX = n => 8 + (n - 1) / 364 * (640 - 16);
