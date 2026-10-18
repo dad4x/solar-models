@@ -2174,17 +2174,20 @@ if (typeof document !== 'undefined') {
   function yearlyBattery(st, prm) {
     if (!st || !st.done || !USE || !st.originalSeries || st.originalSeries.length < 12) return null;
     if (st._battery && st._batteryUse === useLoads) return st._battery;
-    var res = { plan: { peak: 0, storage: 0 }, alt: { peak: 0, storage: 0 }, days: 0 };
+    var res = { plan: { peak: 0, storage: 0 }, alt: { peak: 0, storage: 0 }, days: 0, byMonth: {} };
     usageDays().forEach(function (k) {
       var day = USE.days[k];
       if (!completeDay(k) || day.n < 96) return;
       var m = +k.slice(5, 7) - 1, sh = clockShift(C.dayOfYear(m + 1, 15), prm.site), use = [];
       for (var s = 0; s < 96; s++) use.push({ t: s * 0.25 + 0.125, kw: (day.kwh[s] || 0) / 0.25 });
       res.days++;
+      var mo = res.byMonth[k.slice(0, 7)] || (res.byMonth[k.slice(0, 7)] = { plan: { peak: 0, storage: 0 }, alt: { peak: 0, storage: 0 } });
       [['plan', st.originalSeries[m]], ['alt', st.alternativeSeries[m]]].forEach(function (w) {
         var out = w[1].map(function (kw, i) { return { t: i * 0.25 + sh, kw: kw }; }), b = batteryFor(out, use);
-        res[w[0]].peak = Math.max(res[w[0]].peak, b.peakKw);
-        res[w[0]].storage = Math.max(res[w[0]].storage, b.swing);
+        [res[w[0]], mo[w[0]]].forEach(function (agg) {   // the year, and the month of this day
+          agg.peak = Math.max(agg.peak, b.peakKw);
+          agg.storage = Math.max(agg.storage, b.swing);
+        });
       });
     });
     st._battery = res.days ? res : null;
@@ -2200,13 +2203,17 @@ if (typeof document !== 'undefined') {
     var keys = usageDays(), done = keys.filter(completeDay), months = completeMonths(), rows = windowC ? windowC.rows : {};
     var yearReady = !!yearC && yearC.key === yearKey(prm) && yearC.done, dayReady = !windowC || windowC.done;
     var ready = (months.length === 0 || yearReady) && dayReady;
+    var yb = yearReady ? yearlyBattery(yearC, prm) : null;
     var mUse = 0, mOut = { plan: 0, alt: 0 }, dUse = 0, dOut = { plan: 0, alt: 0 }, dDays = 0, monthly = '';
     months.forEach(function (c) {
       var p = yearReady ? yearC.original[c.m] : null, a = yearReady ? yearC.alternative[c.m] : null;
       if (yearReady) { mUse += c.kwh; mOut.plan += p; mOut.alt += a; }
+      var bm = yb && yb.byMonth[c.ym];
       monthly += '<tr><td>' + MNAMES[c.m] + ' ' + c.ym.slice(0, 4) + '</td><td>' + c.kwh.toFixed(1) + '</td><td>' +
         (p == null ? '…' : p.toFixed(1)) + '</td><td>' + (p == null ? '…' : signed(c.kwh - p)) + '</td><td>' +
-        (a == null ? '…' : a.toFixed(1)) + '</td><td>' + (a == null ? '…' : signed(c.kwh - a)) + '</td></tr>';
+        (a == null ? '…' : a.toFixed(1)) + '</td><td>' + (a == null ? '…' : signed(c.kwh - a)) + '</td><td>' +
+        (bm ? bm.plan.peak.toFixed(1) : '…') + '</td><td>' + (bm ? bm.plan.storage.toFixed(1) : '…') + '</td><td>' +
+        (bm ? bm.alt.peak.toFixed(1) : '…') + '</td><td>' + (bm ? bm.alt.storage.toFixed(1) : '…') + '</td></tr>';
     });
     keys.forEach(function (k) {
       if (!rows[k]) return;
@@ -2214,7 +2221,6 @@ if (typeof document !== 'undefined') {
     });
     var totUse = mUse + dUse, totPlan = mOut.plan + dOut.plan, totAlt = mOut.alt + dOut.alt;
     var num = function (x) { return ready ? x.toFixed(1) : '…'; }, net = function (x, y) { return ready ? signed(x - y) : '…'; };
-    var yb = yearReady ? yearlyBattery(yearC, prm) : null;
     var battery = yb ? '<tr><td>Battery peak discharge, kW (worst quarter hour)</td><td>' + yb.plan.peak.toFixed(1) + '</td><td>' +
       yb.alt.peak.toFixed(1) + '</td></tr><tr><td>Battery storage, kWh (worst day)</td><td>' + yb.plan.storage.toFixed(1) +
       '</td><td>' + yb.alt.storage.toFixed(1) + '</td></tr>' : '';
@@ -2226,8 +2232,9 @@ if (typeof document !== 'undefined') {
       '<tr><td>Net, kWh (+ import, − export)</td><td>' + net(totUse, totPlan) + '</td><td>' + net(totUse, totAlt) + '</td></tr>' +
       battery + '</table>';
     if (months.length) {
-      h += '<table class="cmp"><tr><th>Complete months</th><th>Use, kWh</th><th>Plan output</th><th>Plan net</th>' +
-        '<th>Alternative output</th><th>Alternative net</th></tr>' + monthly + '</table>';
+      h += '<div class="tw"><table class="cmp"><tr><th>Complete months</th><th>Use, kWh</th><th>Plan output</th><th>Plan net</th>' +
+        '<th>Alternative output</th><th>Alternative net</th><th>Plan peak, kW</th><th>Plan storage, kWh</th>' +
+        '<th>Alternative peak, kW</th><th>Alternative storage, kWh</th></tr>' + monthly + '</table></div>';
     }
     if (dDays && dayReady) {
       h += '<div class="note">Days in partial months: ' + dDays + ' days, use ' + dUse.toFixed(1) + ' kWh; plan output ' +

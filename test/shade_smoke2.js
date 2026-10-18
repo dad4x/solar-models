@@ -538,6 +538,8 @@ const LOOMIS_YEAR = 'Year, kWh: plan 40,437 · alternative 41,087';
   // The year's battery rows: a flat 2.0 kW use with no output at night has a worst quarter hour of 2.0 kW, for both layouts.
   expectEq('the year battery: a worst quarter hour of 2.0 kW for both layouts',
     /Battery peak discharge, kW \(worst quarter hour\)<\/td><td>2\.0<\/td><td>2\.0<\/td>/.test(elements.useSum.innerHTML), true);
+  expectEq('the monthly table gives the November battery: 2.0 kW worst quarter hour, and a storage for each layout',
+    /<td>Nov 2026<\/td>(?:<td>[^<]*<\/td>){5}<td>2\.0<\/td><td>[\d.]+<\/td><td>2\.0<\/td><td>[\d.]+<\/td>/.test(elements.useSum.innerHTML), true);
   expectEq('the year battery: a storage figure for each layout',
     /Battery storage, kWh \(worst day\)<\/td><td>[\d.]+<\/td><td>[\d.]+<\/td>/.test(elements.useSum.innerHTML), true);
   expectEq('the date graph has the monthly use line', elements.dgUse.textContent, 'use, kWh per month: from the use file');
