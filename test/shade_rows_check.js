@@ -72,7 +72,7 @@ const nm = C.buildScene(flat, PN).mods.filter(X => X.group === 'N');
 check('N row dz 2: last minus first module base, ft', nm[4].P00[2] - nm[0].P00[2], 2, 1e-9);
 check('N row dz 2: middle of row stays at base 5', nm[2].P00[2], 5, 1e-9);
 
-// 4. Base: inner rows at 7 ft put their tops at 7 + L sin 45 and over the 10 ft cap (14 modules).
+// 4. Base: inner columns at 7 ft put their tops at 7 + L sin 45 and over the 10 ft cap (14 modules).
 const PB = clone(ALT); PB.IL.base = 7;
 const sB = C.buildScene(flat, PB);
 check('IL base 7: top above grade, ft', sB.mods.find(X => X.group === 'IL').topLocal, 7 + L * Math.sin(45 * D2R), 1e-6);

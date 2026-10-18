@@ -430,41 +430,42 @@ const LOOMIS_YEAR = 'Year, kWh: plan 40,437 · alternative 41,087';
   setChk('a_NI_on', false); setChk('a_SI_on', false); fire('knobsA', 'change');
   expectEq('extra rows off again: alternative modules', capA(), '44');
 
-  // Add row and Add column. Each card has four east-west rows and four north-south rows, and a spare one is off. The button
-  // switches on the next spare row and opens its box; ticking or unticking a row's On box opens or folds its box the same way.
+  // Add row and Add column. A row runs east-west and the four rows stack north to south (N, NI, SI, S). A column runs
+  // north-south and the four columns sit side by side (OL, IL, IR, OR). A spare one is off. Each button switches on the next
+  // spare one of its kind and opens its box; ticking or unticking a row's On box opens or folds its box the same way.
   ROWS.forEach(g => rowOn('o_', g, onOf(g)));
-  expectEq('plan: Add row greyed out while all four east-west rows are on', elements.addRowO.disabled, true);
-  expectEq('plan: Add column available while an inner north or south row is off', elements.addColO.disabled, false);
-  expectEq('alternative: Add row greyed out while all four east-west rows are on', elements.addRowA.disabled, true);
-  expectEq('alternative: Add column available while an inner north or south row is off', elements.addColA.disabled, false);
+  expectEq('plan: Add column greyed out while all four columns are on', elements.addColO.disabled, true);
+  expectEq('plan: Add row available while an inner north or south row is off', elements.addRowO.disabled, false);
+  expectEq('alternative: Add column greyed out while all four columns are on', elements.addColA.disabled, true);
+  expectEq('alternative: Add row available while an inner north or south row is off', elements.addRowA.disabled, false);
   expectEq('the inner north row starts folded', rowFolded('o_', 'NI'), true);
   rowOn('o_', 'NI', true);
   expectEq('ticking an inner row opens its box', rowFolded('o_', 'NI'), false);
   rowOn('o_', 'NI', false);
   expectEq('unticking it folds the box again', rowFolded('o_', 'NI'), true);
 
-  fire('addColO', 'click');
-  expectEq('Add column switches on the first off north-south row, the inner north', elements.o_NI_on.checked, true);
+  fire('addRowO', 'click');
+  expectEq('Add row switches on the first off row, the inner north', elements.o_NI_on.checked, true);
   expectEq('... and opens its box', rowFolded('o_', 'NI'), false);
-  expectEq('the inner south row is still spare, so Add column stays available', elements.addColO.disabled, false);
-  fire('addColO', 'click');
-  expectEq('the next Add column switches on the inner south row', elements.o_SI_on.checked, true);
-  expectEq('with all four north-south rows on, Add column is greyed out', elements.addColO.disabled, true);
+  expectEq('the inner south row is still spare, so Add row stays available', elements.addRowO.disabled, false);
+  fire('addRowO', 'click');
+  expectEq('the next Add row switches on the inner south row', elements.o_SI_on.checked, true);
+  expectEq('with all four rows on, Add row is greyed out', elements.addRowO.disabled, true);
   const onBeforeClick = checkedRows('o_');
-  fire('addColO', 'click');
-  expectEq('clicking a greyed-out Add column changes nothing', checkedRows('o_'), onBeforeClick);
+  fire('addRowO', 'click');
+  expectEq('clicking a greyed-out Add row changes nothing', checkedRows('o_'), onBeforeClick);
 
-  expectEq('Add row still greyed out while all east-west rows are on', elements.addRowO.disabled, true);
+  expectEq('Add column still greyed out while all four columns are on', elements.addColO.disabled, true);
   rowOn('o_', 'OL', false); rowOn('o_', 'IR', false);
-  expectEq('an off east-west row makes Add row available', elements.addRowO.disabled, false);
-  expectEq('the switched-off outer west row folds away', rowFolded('o_', 'OL'), true);
-  fire('addRowO', 'click');
-  expectEq('Add row switches on the first off east-west row, the outer west', elements.o_OL_on.checked, true);
+  expectEq('an off column makes Add column available', elements.addColO.disabled, false);
+  expectEq('the switched-off outer west column folds away', rowFolded('o_', 'OL'), true);
+  fire('addColO', 'click');
+  expectEq('Add column switches on the first off column, the outer west', elements.o_OL_on.checked, true);
   expectEq('... and opens its box', rowFolded('o_', 'OL'), false);
-  expectEq('the inner east row is still spare, so Add row stays available', elements.addRowO.disabled, false);
-  fire('addRowO', 'click');
-  expectEq('the next Add row switches on the inner east row', elements.o_IR_on.checked, true);
-  expectEq('with all four east-west rows on again, Add row is greyed out', elements.addRowO.disabled, true);
+  expectEq('the inner east column is still spare, so Add column stays available', elements.addColO.disabled, false);
+  fire('addColO', 'click');
+  expectEq('the next Add column switches on the inner east column', elements.o_IR_on.checked, true);
+  expectEq('with all four columns on again, Add column is greyed out', elements.addColO.disabled, true);
 
   // A saved scenario sets the On boxes on load, and each row's box follows its On box: a row on in the file opens, and one off folds.
   // Saving waits for the yearly totals after a change, so each change is flushed before the save, and the saved text is checked.
@@ -487,8 +488,8 @@ const LOOMIS_YEAR = 'Year, kWh: plan 40,437 · alternative 41,087';
 
   // Back to the default rows for the checks after this.
   ROWS.forEach(g => rowOn('o_', g, onOf(g)));
-  expectEq('default rows again: Add row greyed out', elements.addRowO.disabled, true);
-  expectEq('default rows again: Add column available', elements.addColO.disabled, false);
+  expectEq('default rows again: Add column greyed out', elements.addColO.disabled, true);
+  expectEq('default rows again: Add row available', elements.addRowO.disabled, false);
 
   // Positions from 0,0: moving the outer west row, then every row with the all-rows control.
   flush();

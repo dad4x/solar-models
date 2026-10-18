@@ -252,7 +252,7 @@ h1 .info{width:20px;height:20px;font-size:12px;margin-left:8px}
 <div class="bbody"><canvas id="cA" width="640" height="460"></canvas></div>
 </section>
 <section class="box ctrl" id="ctrlA">
-<div class="bhead"><button class="tog" type="button" data-tog="ctrlA"></button><span class="btitle">Alternative: rows (defaults = inner rows 2 ft up, north row with them, south kept)</span><button class="info" type="button" data-help="rows" aria-label="Help: rows">i</button></div>
+<div class="bhead"><button class="tog" type="button" data-tog="ctrlA"></button><span class="btitle">Alternative: rows (defaults = inner columns 2 ft up, north row with them, south kept)</span><button class="info" type="button" data-help="rows" aria-label="Help: rows">i</button></div>
 <div class="bbody"><div class="row" style="margin:0 0 6px"><button id="addRowA" type="button">Add row</button><button id="addColA" type="button">Add column</button></div><p class="note modinfo" id="modA"></p><div id="knobsA"></div></div>
 </section>
 </div>
@@ -307,13 +307,13 @@ var CORE = (function () {
   var VK = 24;
   var GROUPS = ['OL', 'IL', 'IR', 'OR', 'N', 'NI', 'SI', 'S'];
   var FACING = { OL: 'W', IL: 'W', IR: 'E', OR: 'E', N: 'S', NI: 'S', SI: 'S', S: 'S' };
-  var NAME = { OL: 'Outer row (faces W)', IL: 'Inner row (faces W)', IR: 'Inner row (faces E)',
-               OR: 'Outer row (faces E)', N: 'North row (faces S)', NI: 'Inner north row (faces S)',
+  var NAME = { OL: 'Outer column (faces W)', IL: 'Inner column (faces W)', IR: 'Inner column (faces E)',
+               OR: 'Outer column (faces E)', N: 'North row (faces S)', NI: 'Inner north row (faces S)',
                SI: 'Inner south row (faces S)', S: 'South row (faces S)' };
   // Panels per row in the baseline layout.
   var DEFAULT_N = { OL: 10, IL: 7, IR: 7, OR: 10, N: 5, NI: 5, SI: 5, S: 5 };
   // Baseline location of each row on graph paper, ft from the origin 0,0 (south-west corner of the sketch grid, east and
-  // north positive). East-west rows: the base corner; the modules step north from it. North-south rows: the west end
+  // north positive). Columns: the base corner; the modules step north from it. Rows: the west end
   // and base edge; the modules step east from it.
   var DEF_BASE = {
     OL: [0.5, 0], IL: [12.9, 8], IR: [24.1, 8], OR: [36.2, 0],
@@ -773,11 +773,13 @@ if (typeof document !== 'undefined') {
   var MNAMES = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
   var geo = null, dayC = null;
 
+  // ns marks a row: a line of modules running east-west, and the four rows stack north to south. The rest (ns false) are
+  // columns: lines of modules running north-south, side by side from west to east.
   var ROWS = [
-    { g: 'OL', label: 'Outer row, faces W', ns: false },
-    { g: 'IL', label: 'Inner row, faces W', ns: false },
-    { g: 'IR', label: 'Inner row, faces E', ns: false },
-    { g: 'OR', label: 'Outer row, faces E', ns: false },
+    { g: 'OL', label: 'Outer column, faces W', ns: false },
+    { g: 'IL', label: 'Inner column, faces W', ns: false },
+    { g: 'IR', label: 'Inner column, faces E', ns: false },
+    { g: 'OR', label: 'Outer column, faces E', ns: false },
     { g: 'N', label: 'North row, faces S', ns: true },
     { g: 'NI', label: 'Inner north row, faces S (extra)', ns: true },
     { g: 'SI', label: 'Inner south row, faces S (extra)', ns: true },
@@ -799,7 +801,7 @@ if (typeof document !== 'undefined') {
     var b = C.DEF_BASE[g];
     return { on: on, n: C.DEFAULT_N[g], base: base, tilt: 45, dz: 0, gap: GAP_IN[g], right: b[0], up: b[1] };
   }
-  // Original: all rows as drawn. Alternative: inner rows 2 ft higher, north row with them; the extra inner north and
+  // Original: all rows as drawn. Alternative: inner columns 2 ft higher, north row with them; the extra inner north and
   // south rows are off.
   var DEF_O = {
     OL: defRow('OL', 3, true), IL: defRow('IL', 3, true), IR: defRow('IR', 3, true), OR: defRow('OR', 3, true),
@@ -843,8 +845,8 @@ if (typeof document !== 'undefined') {
   function fld(label, html) { return '<div class="fld"><span class="cl">' + label + '</span>' + html + '</div>'; }
   // Each row is a box: its On box and arrow in the header, and its settings in the body. A row that starts off is collapsed.
   function buildKnobs(prefix, defs) {
-    // The column names, once above the rows on a wide screen (each with its range as a tooltip). Each row uses the same grid,
-    // and a blank cell keeps a column empty where a row has none (the height difference on east-west rows).
+    // The grid's column names, once above the rows on a wide screen (each with its range as a tooltip). Each row uses the same grid,
+    // and a blank cell keeps a grid column empty where a row has none (the height difference on rows).
     var blank = '<div class="fld blank"></div>';
     var h = '<div class="rowhead"><span>Row</span><div class="fields">' +
       '<span title="Panels in the row">Panels</span><span title="Base: lowest edge above grade, 0 to 15 ft">Base, ft</span>' +
@@ -901,16 +903,16 @@ if (typeof document !== 'undefined') {
     var on = $(prefix + g + '_on'), box = document.getElementById('rb_' + prefix + g);
     if (on && box) box.classList.toggle('collapsed', !on.checked);
   }
-  // Add row needs a spare east-west row in its card, and Add column a spare north-south column (one that is off).
+  // Add row needs a spare row in its card, and Add column a spare column (one that is off).
   function syncAddButtons() {
     [['o_', 'addRowO', 'addColO'], ['a_', 'addRowA', 'addColA']].forEach(function (p) {
-      $(p[1]).disabled = !ROWS.some(function (r) { return !r.ns && !$(p[0] + r.g + '_on').checked; });
-      $(p[2]).disabled = !ROWS.some(function (r) { return r.ns && !$(p[0] + r.g + '_on').checked; });
+      $(p[1]).disabled = !ROWS.some(function (r) { return r.ns && !$(p[0] + r.g + '_on').checked; });
+      $(p[2]).disabled = !ROWS.some(function (r) { return !r.ns && !$(p[0] + r.g + '_on').checked; });
     });
   }
-  // Add row or Add column: switch on the first spare east-west row or north-south column of a card, and open it.
-  function addSpare(prefix, ns) {
-    var r = ROWS.filter(function (x) { return x.ns === ns && !$(prefix + x.g + '_on').checked; })[0];
+  // Add row or Add column: switch on the first off row (or column) of the card, and open it.
+  function addSpare(prefix, row) {
+    var r = ROWS.filter(function (x) { return x.ns === row && !$(prefix + x.g + '_on').checked; })[0];
     if (!r) return;
     $(prefix + r.g + '_on').checked = true;
     syncRowBox(prefix, r.g);
@@ -933,12 +935,12 @@ if (typeof document !== 'undefined') {
   // Help text, shown from the (i) buttons: on hover with a mouse, and on a click or tap. A click again, Escape, or a click
   // elsewhere closes a pinned popup.
   var HELP = {
-    about: "Top: the plan, with rows as drawn at the defaults (44 modules). Below it: the alternative at its defaults (inner rows 2 ft above the outer rows, north row with them, south row kept). Each row has an On box, a panel count, and sliders for base, tilt, gap, and its position on graph paper: right (east) and up (north) from the origin 0,0 at the south-west corner of the sketch, 0 to 50 ft, with the defaults at the baseline locations. North and south rows also take a height difference. The inner north and south rows are off by default. The sun path comes from the location, so the same page serves another site: set the location, the site inputs, and the rows, then save a scenario. Hover a panel for its front and back estimated output. The line under the date and time on each view gives the array's output now and for the selected day. Red outline = module top above the height cap. Gold = sunlit, slate = shaded. Drag a row's modules to move that row; drag elsewhere in a view to orbit it, and scroll to zoom. Each box has an arrow to collapse it. Collapsing a view hides it and its controls.",
+    about: "Top: the plan, with rows as drawn at the defaults (44 modules). Below it: the alternative at its defaults (inner columns 2 ft above the outer columns, north row with them, south row kept). Each row has an On box, a panel count, and sliders for base, tilt, gap, and its position on graph paper: right (east) and up (north) from the origin 0,0 at the south-west corner of the sketch, 0 to 50 ft, with the defaults at the baseline locations. North and south rows also take a height difference. The inner north and south rows are off by default. The sun path comes from the location, so the same page serves another site: set the location, the site inputs, and the rows, then save a scenario. Hover a panel for its front and back estimated output. The line under the date and time on each view gives the array's output now and for the selected day. Red outline = module top above the height cap. Gold = sunlit, slate = shaded. Drag a row's modules to move that row; drag elsewhere in a view to orbit it, and scroll to zoom. Each box has an arrow to collapse it. Collapsing a view hides it and its controls.",
     scenario: "Save writes a .js file with the location, time zone, true north offset, the parameters, and the summary results. Load reads a file back, or paste its text into the box. Files from versions 1 to 7 still load. The comparison shows the saved results next to the current ones.",
     location: "Latitude and longitude as map apps show them, so south and west are negative. Changing either one looks up the time zone, which sets the clock labels and daylight time; the lookup sends only those two numbers to open-meteo.com. You can also type a zone or pick one from the list, which works offline. The zone is saved in each scenario file.",
     north: "The true north offset is the clockwise angle from graph north (the sketch's up) to true north. 0 means the sketch is north-up. Each view's rose shows true north. Turn the rose with its two arrows (15 degrees a click, 1 with shift), or type the offset here. The offset is saved with the scenario.",
     site: "Ground albedo (0.40) is a placeholder; set it for your surface. Bifaciality scales the rear face. Output = irradiance × rating ÷ 1000 × system factor, so the rating is the front STC power over 2.205 m² (22.7% at 500 W). The system factor (0.85) is a placeholder for temperature, soiling, inverter, and wiring losses. The height cap is checked two ways: from the grade under each row, or from the lowest grade on the site. Set the site rise to 0 to remove the slope. The height cap and setbacks are inputs; check them against the local code.",
-    rows: "Base = lowest edge above grade (north and south rows: at the row's middle). Height difference = first to last module, + = east higher. Gap = space between modules in a row, in inches. Panels = modules in the row. Right and up place each row's base corner on graph paper, measured from the origin 0,0 at the south-west corner of the sketch; the defaults are the baseline locations. Panels and gap extend an east-west row north, and a north-south row east, from that corner. Turn the inner north and south rows on to try four rows in the north-south direction, with the east-west rows off. Add row switches on the next off east-west row and opens it; Add column does the same for the north-south rows. All rows moves every row together, right (+E) and up (+N). Each setting has a slider beside its number box. On a wide screen the column names sit above the rows, and each name's tooltip gives its range; type a value in a box for anything outside a slider's range. Drag a row's modules in either view to move that row: its right and up follow the pointer, to 0.1 ft.",
+    rows: "Base = lowest edge above grade (north and south rows: at the row's middle). Height difference = first to last module, + = east higher. Gap = space between modules in a row, in inches. Panels = modules in the row. Right and up place each row's base corner on graph paper, measured from the origin 0,0 at the south-west corner of the sketch; the defaults are the baseline locations. Panels and gap extend a column north, and a row east, from that corner. Turn the inner north and south rows on to try four rows in the north-south direction, with the columns off. Add row switches on the next off row and opens it; Add column does the same for the next off column. All rows moves every row together, right (+E) and up (+N). Each setting has a slider beside its number box. On a wide screen the column names sit above the rows, and each name's tooltip gives its range; type a value in a box for anything outside a slider's range. Drag a row's modules in either view to move that row: its right and up follow the pointer, to 0.1 ft.",
     time: "Local clock time in the time zone under Location, with that zone's daylight time for 2026. Drag the cursor on the time graph, or press anywhere on it, to set the clock time: 5 am at the left and 9 pm at the right, which covers sunrise and sunset on June 21 at the default site. The sun is computed from apparent solar time, so the time zone changes the clock labels, not the energy.",
     graph: "The projected output of the selected layout for this day, in kW at each clock time, on a clock scale from 5 am to 9 pm. It comes from the same clear-sky model as the day total, so the area under the curve is the day's output in kWh. Plan and Alternative choose the layout. The orange use line is the day's readings from the use file, in kW on the same clock. Battery for net zero, which needs a complete day of use readings: the peak discharge is the largest quarter-hour shortfall of the array against use, in kW, which is the power a battery must supply at that moment. The storage is the swing of the day's running balance (output minus use, in kWh), from its lowest point to its highest: the most energy a battery must hold at once to cover every shortfall from earlier surplus. A battery moves energy in time; it cannot create it. So the day's net is not the storage. A net import cannot be closed by any battery, and a net export is usually far smaller than the storage, because the house draws at night when the array makes nothing. These figures are ideal: no losses, no power limit, and the day is treated alone.",
     dategraph: "The projected output of the selected layout for each month, in kWh. Each point is the month's total, the number on its monthly label, worked out for the 15th of the month and scaled by the days in the month. The points sit on the day slider's scale; the line between them is a guide. The marker is the selected day, and the reading is its month's total. Plan and Alternative choose the layout for both graphs. The orange use line is the monthly use from the use file, for each month the file completes.",
@@ -2457,10 +2459,10 @@ if (typeof document !== 'undefined') {
   $('knobsA').innerHTML = buildKnobs('a_', DEF_A);
   syncAllSliders();
   syncAddButtons();
-  $('addRowO').addEventListener('click', function () { addSpare('o_', false); });
-  $('addColO').addEventListener('click', function () { addSpare('o_', true); });
-  $('addRowA').addEventListener('click', function () { addSpare('a_', false); });
-  $('addColA').addEventListener('click', function () { addSpare('a_', true); });
+  $('addRowO').addEventListener('click', function () { addSpare('o_', true); });
+  $('addColO').addEventListener('click', function () { addSpare('o_', false); });
+  $('addRowA').addEventListener('click', function () { addSpare('a_', true); });
+  $('addColA').addEventListener('click', function () { addSpare('a_', false); });
   renderYear({ original: [], alternative: [], done: false });
   bindCanvas($('cO'));
   bindCanvas($('cA'));
