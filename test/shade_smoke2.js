@@ -68,7 +68,8 @@ const defaults = {
   cO: { width: 640, height: 460 }, cA: { width: 640, height: 460 },
   capO: {}, capA: {}, timeLabel: {}, dateLabel: {}, sum: {}, grp: {}, mticks: {}, vticks: {},
   gr: { width: 640, height: 130 }, grPlan: {}, grAlt: {}, grTitle: {}, grUse: {},
-  dg: { width: 640, height: 130 }, dgPlan: {}, dgAlt: {}, dgTitle: {}, dgUse: {}
+  dg: { width: 640, height: 130 }, dgPlan: {}, dgAlt: {}, dgTitle: {}, dgUse: {},
+  useFile: { files: [], value: '' }, useText: { value: '' }, useLoadText: {}, useClear: {}, useStatus: {}, useSum: {}
 };
 for (const [pre, base] of [['o_', BASE_O], ['a_', BASE_A]]) {
   defaults[pre + 'all_dx'] = { value: '0' };
@@ -476,6 +477,54 @@ const LOOMIS_YEAR = 'Year, kWh: plan 40,437 · alternative 41,087';
     /· Alternative · year/.test(elements.dgTitle.textContent) && elements.dgAlt.classList.contains('on') && elements.grAlt.classList.contains('on'), true);
   fire('dgPlan', 'click');
   expectEq('and back to the plan on both graphs', /· Plan · year/.test(elements.dgTitle.textContent) && elements.grPlan.classList.contains('on'), true);
+
+  // Use data: a pasted file, read by the same parser as the file picker. Sep 20 and Sep 21, 2026 are complete at 0.5 kWh a
+  // reading; Sep 22 has 10 readings; the gas row is not used. So the file has 3 days, 2 of them complete, and 101.0 kWh.
+  const usePoint = s => String(Math.floor(s / 60)).padStart(2, '0') + ':' + String(s % 60).padStart(2, '0');
+  const useLines = (day, n) => Array.from({ length: n }, (_, i) =>
+    ['Electric usage', day, usePoint(i * 15), usePoint(i * 15 + 14), '0.50', '$0.10'].join(','));
+  setVal('useText', ['TYPE,DATE,START TIME,END TIME,USAGE (kWh),COST,NOTES', ...useLines('2026-09-20', 96),
+    ...useLines('2026-09-21', 96), ...useLines('2026-09-22', 10), 'Natural gas usage,2026-09-20,00:00,23:59,3.00,$1.00,'].join('\n'));
+  fire('useLoadText', 'click'); flush();
+  expectEq('use file: days, complete days, and total in the status',
+    /Loaded the usage file: 3 days, Sep 20, 2026 to Sep 22, 2026, 2 complete, 101\.0 kWh\./.test(elements.useStatus.textContent), true);
+  expectEq('use file: the day slider moves to the last complete day', elements.dateLabel.textContent.startsWith('Sep 21'), true);
+  const useTitle = elements.grTitle.textContent, useOut = parseFloat(/day total ([\d.]+) kWh/.exec(useTitle)[1]);
+  const useNet = /net ([+−])(\d+\.\d) kWh/.exec(useTitle);
+  expectEq('use line: 48.0 kWh on the day, with its net', /· use 48\.0 kWh · net [+−]\d+\.\d kWh/.test(useTitle), true);
+  expectEq('the net is the use minus the output for the day',
+    !!useNet && Math.abs((useNet[1] === '+' ? 1 : -1) * parseFloat(useNet[2]) - (48 - useOut)) < 0.11, true);
+  expectEq('use legend: no full month in the file yet', elements.dgUse.textContent, 'use, kWh: no full month in the file yet');
+  setVal('day', '265'); fire('day', 'change'); flush();   // Sep 22, 10 readings
+  expectEq('a partial day shows its use, with no net', /· use 5\.0 kWh \(partial day\)/.test(elements.grTitle.textContent), true);
+  setVal('day', '263'); fire('day', 'change'); flush();   // Sep 20
+  const useOut20 = parseFloat(/day total ([\d.]+) kWh/.exec(elements.grTitle.textContent)[1]);
+  setVal('day', '264'); fire('day', 'change'); flush();   // Sep 21
+  const useOut21 = parseFloat(/day total ([\d.]+) kWh/.exec(elements.grTitle.textContent)[1]);
+  const planOut = /Output, kWh \(clear sky\)<\/td><td>([\d.]+)<\/td>/.exec(elements.useSum.innerHTML);
+  expectEq('use summary: 2 complete days, whose output is the two day totals',
+    /Complete days in the file: 2 of 3/.test(elements.useSum.innerHTML) && !!planOut && Math.abs(parseFloat(planOut[1]) - (useOut20 + useOut21)) < 0.15, true);
+  fire('useClear', 'click');
+  expectEq('clearing the file removes the summary, the status, and the use line',
+    elements.useSum.innerHTML === '' && elements.useStatus.textContent === '' && !/· use /.test(elements.grTitle.textContent), true);
+
+  // A full month in the file: November 2026, 30 days at 0.5 kWh a reading (1,440.0 kWh). Its use goes in the monthly table with
+  // the year's output for November, which is the figure on the date graph's monthly label.
+  const novLines = [];
+  for (let d = 1; d <= 30; d++) for (let i = 0; i < 96; i++) {
+    novLines.push(['Electric usage', '2026-11-' + String(d).padStart(2, '0'), usePoint(i * 15), usePoint(i * 15 + 14), '0.50', '$0.10'].join(','));
+  }
+  setVal('useText', ['TYPE,DATE,START TIME,END TIME,USAGE (kWh),COST,NOTES', ...novLines].join('\n'));
+  fire('useLoadText', 'click'); flush();
+  expectEq('a full month: all 30 days are complete', /Complete days in the file: 30 of 30/.test(elements.useSum.innerHTML), true);
+  const novRow = /<td>Nov 2026<\/td><td>1440\.0<\/td><td>([\d.]+)<\/td>/.exec(elements.useSum.innerHTML);
+  expectEq('a full month: its use is in the monthly table', !!novRow, true);
+  const novLabel = [...(elements.dg._ctx.__texts || [])].map(t => t.text).filter(t => /^Plan Nov: /.test(t)).pop() || '';
+  const novGraph = /^Plan Nov: ([\d,]+) kWh/.exec(novLabel);
+  expectEq('the monthly output matches the date graph label',
+    !!novRow && !!novGraph && Math.abs(parseFloat(novGraph[1].replace(/,/g, '')) - Math.round(parseFloat(novRow[1]))) <= 1, true);
+  expectEq('the date graph has the monthly use line', elements.dgUse.textContent, 'use, kWh per month: from the use file');
+  fire('useClear', 'click');
 
   // Dragging a row: press on the front-most module and move the pointer across the ground. The row's right and up follow the
   // pointer to 0.1 ft, and moving back returns them.

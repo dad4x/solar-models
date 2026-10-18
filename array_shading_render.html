@@ -194,6 +194,19 @@ h1 .info{width:20px;height:20px;font-size:12px;margin-left:8px}
 </fieldset>
 
 
+<fieldset class="box" id="boxUse">
+<legend><button class="tog" type="button" data-tog="boxUse"></button>Use data: your meter file, read in this browser and not uploaded <button class="info" type="button" data-help="use" aria-label="Help: use data">i</button></legend>
+<div class="row">
+<label>Usage file (PG&amp;E electric interval CSV) <input id="useFile" type="file" accept=".csv,text/csv,text/plain"></label>
+<button id="useClear" type="button">Clear</button>
+<span id="useStatus" class="note"></span>
+</div>
+<details style="margin-top:8px"><summary>Or paste the file's text</summary>
+<textarea id="useText" rows="6" style="width:100%;font:12px/1.4 Consolas,ui-monospace,monospace;margin-top:6px"></textarea>
+<div class="row" style="margin-top:6px"><button id="useLoadText" type="button">Load from text</button></div>
+</details>
+<div id="useSum" style="margin-top:8px"></div>
+</fieldset>
 <div id="timeLabel" class="readout"></div>
 
 <div class="stage" id="stage">
@@ -911,8 +924,9 @@ if (typeof document !== 'undefined') {
     site: "Ground albedo (0.40) is a placeholder; set it for your surface. Bifaciality scales the rear face. Output = irradiance × rating ÷ 1000 × system factor, so the rating is the front STC power over 2.205 m² (22.7% at 500 W). The system factor (0.85) is a placeholder for temperature, soiling, inverter, and wiring losses. The height cap is checked two ways: from the grade under each row, or from the lowest grade on the site. Set the site rise to 0 to remove the slope. The height cap and setbacks are inputs; check them against the local code.",
     rows: "Base = lowest edge above grade (north and south rows: at the row's middle). Height difference = first to last module, + = east higher. Gap = space between modules in a row, in inches. Panels = modules in the row. Right and up place each row's base corner on graph paper, measured from the origin 0,0 at the south-west corner of the sketch; the defaults are the baseline locations. Panels and gap extend an east-west row north, and a north-south row east, from that corner. Turn the inner north and south rows on to try four rows in the north-south direction, with the east-west rows off. All rows moves every row together, right (+E) and up (+N). Each setting has a slider beside its number box. On a wide screen the column names sit above the rows, and each name's tooltip gives its range; type a value in a box for anything outside a slider's range. Drag a row's modules in either view to move that row: its right and up follow the pointer, to 0.1 ft.",
     time: "Local clock time in the time zone under Location, with that zone's daylight time for 2026. The slider runs from 5 am (left) to 9 pm (right), which covers sunrise and sunset on June 21 at the default site. The sun is computed from apparent solar time, so the time zone changes the clock labels, not the energy.",
-    graph: "The projected output of the selected layout for this day, in kW at each clock time, on the same scale as the slider (5 am to 9 pm). It comes from the same clear-sky model as the day total, so the area under the curve is the day's output in kWh. Plan and Alternative choose the layout. The orange use line is for imported use data on the same clock; no use data is imported yet.",
-    dategraph: "The projected output of the selected layout for each month, in kWh. Each point is the month's total, the number on its monthly label, worked out for the 15th of the month and scaled by the days in the month. The points sit on the day slider's scale; the line between them is a guide. The marker is the selected day, and the reading is its month's total. Plan and Alternative choose the layout for both graphs. The orange use line is for imported monthly use data; nothing is imported yet.",
+    graph: "The projected output of the selected layout for this day, in kW at each clock time, on the same scale as the slider (5 am to 9 pm). It comes from the same clear-sky model as the day total, so the area under the curve is the day's output in kWh. Plan and Alternative choose the layout. The orange use line is the day's readings from the use file, in kW on the same clock.",
+    dategraph: "The projected output of the selected layout for each month, in kWh. Each point is the month's total, the number on its monthly label, worked out for the 15th of the month and scaled by the days in the month. The points sit on the day slider's scale; the line between them is a guide. The marker is the selected day, and the reading is its month's total. Plan and Alternative choose the layout for both graphs. The orange use line is the monthly use from the use file, for each month the file completes.",
+    use: "Load the usage file from PG&E: the electric interval CSV, with 15-minute readings. This page reads it in your browser, and nothing is uploaded or saved. The page is public, so keep the file out of the repository. The orange use line on the time graph is the day's readings in kW, on the same clock as the output. The net is use minus the clear-sky output for the same day: + is net import from the grid, − is net export. The summary covers the complete days in the file, a day being complete with 92 or more readings.",
     day: "Monthly and yearly totals use the 15th of each month, scaled by the days in that month; checked at the default site against every day of the year, each month is within 2% and the year within 0.1%. The markers show the equinoxes and solstices for 2026; an equinox can fall a day earlier or later by time zone.",
     method: "Geometry: row positions are read from your sketch, so measure them to confirm. Each row's base corner is placed from the origin 0,0 on graph paper (east and north positive); the baseline locations are the defaults. Base elevation is the lowest edge above local grade; for the north and south rows it is at the middle of the row, and the height difference runs from the first module to the last, each module level across its own width. Shading uses the sun path for the location, the east wall (if on), and the modules only: no trees, house, or neighbor structures. True north is the sketch's up turned by the true north offset (0 by default), and the sun path follows it. Output is a clear-sky estimate: direct beam, sky diffuse, and ground-reflected light on each face, with the back face scaled by the bifaciality input. Ground reflection is ray-traced from each face to the ground it sees; each ground point is tested for direct sun against the array and the wall, and the sky diffuse reaching that ground is not reduced by the array."
   };
@@ -1374,6 +1388,7 @@ if (typeof document !== 'undefined') {
     }
     $('mticks').innerHTML = h;
     drawDateGraph(st);
+    if (st.done && USE) renderUse(params());   // the monthly output of complete months is now known
     var all = st.done;
     $('yearLabel').innerHTML = 'Year, kWh: <span class="mo">plan ' + (all ? fmtK(sumArr(st.original)) : '…') +
       '</span> · <span class="mp">alternative ' + (all ? fmtK(sumArr(st.alternative)) : '…') + '</span>';
@@ -1675,12 +1690,15 @@ if (typeof document !== 'undefined') {
     $('dateLabel').textContent = D.label + '   (day ' + D.N + ' of 365)';
     $('seasonLabel').textContent = seasonName(D.N);
     $('timeLabel').textContent = fmtClock(clock, D.N, prm.site) + ' · solar ' + C.solarText(solar) + ' · ' + sunTxt;
+    GRAPH.use = useForDay(D);
+    GRAPH.dateUse = USE ? monthlyUse() : null;
     drawGraph(dd, prm, D, clock);
     drawDateGraph(yearC);
     if (mode === 'full') {
       renderSummary(sc, dd.en, D, prm);
       renderGroups(sc, dd.en, shO, shA);
       requestYear(prm, sc);
+      requestWindow(prm, sc);
       renderComparison();
       var off = clockShift(D.N, prm.site);
       dd.strip.forEach(function (st, k) {
@@ -1885,9 +1903,13 @@ if (typeof document !== 'undefined') {
       ctx.fillText(hourLabel(t), X(t), H - 3);
     });
     if (!en) { ctx.font = '12px system-ui'; ctx.textAlign = 'center'; ctx.fillText('updates on release', W / 2, (top + base) / 2); }
+    var outKwh = en ? en.kwh * eFactor(prm) : null;
+    var useKwh = GRAPH.use ? GRAPH.use.reduce(function (a, p) { return a + p.kw * 0.25; }, 0) : null;
+    var dayKey = USE ? useKeyFor(D) : null, whole = !!dayKey && completeDay(dayKey);
     $('grTitle').textContent = 'Projected output, kW · ' + (planView ? 'Plan' : 'Alternative') + ' · day total ' +
-      (en ? (en.kwh * eFactor(prm)).toFixed(1) + ' kWh' : 'updates on release');
-    $('grUse').textContent = GRAPH.use ? 'use, kW: imported' : 'use, kW: not imported yet';
+      (en ? outKwh.toFixed(1) + ' kWh' : 'updates on release') +
+      (useKwh === null ? '' : ' · use ' + useKwh.toFixed(1) + ' kWh' + (whole && en ? ' · net ' + signed(useKwh - outKwh) + ' kWh' : ' (partial day)'));
+    $('grUse').textContent = useKwh !== null ? 'use, kW: from the use file' : (USE ? 'use, kW: no readings for this day' : 'use, kW: not imported yet');
     $('grPlan').classList.toggle('on', planView);
     $('grAlt').classList.toggle('on', !planView);
   }
@@ -1952,13 +1974,175 @@ if (typeof document !== 'undefined') {
     ctx.font = '11px system-ui'; ctx.fillStyle = '#5b6472'; ctx.textAlign = 'left';
     ctx.fillText(fmtK(ymax) + ' kWh', GRAPH.pad + 2, top - 5);
     ctx.fillStyle = '#1d2430'; ctx.textAlign = 'right';
+    var mu = (GRAPH.dateUse || []).filter(function (u) { return u.m === D.month - 1; })[0];
     ctx.fillText((planView ? 'Plan ' : 'Alternative ') + MNAMES[D.month - 1] + ': ' +
-      (monthVal == null ? '—' : fmtK(monthVal) + ' kWh'), W - GRAPH.pad, top - 5);
+      (monthVal == null ? '—' : fmtK(monthVal) + ' kWh') +
+      (mu && monthVal != null ? ' · use ' + fmtK(mu.kwh) + ' · net ' + signedK(mu.kwh - monthVal) + ' kWh' : ''), W - GRAPH.pad, top - 5);
     $('dgTitle').textContent = 'Projected output by month, kWh · ' + (planView ? 'Plan' : 'Alternative') + ' · year ' +
       (st.done ? fmtK(sumArr(vals)) : '…') + ' kWh';
-    $('dgUse').textContent = GRAPH.dateUse ? 'use, kWh: imported' : 'use, kWh: not imported yet';
+    $('dgUse').textContent = GRAPH.dateUse && GRAPH.dateUse.length ? 'use, kWh per month: from the use file' :
+      (USE ? 'use, kWh: no full month in the file yet' : 'use, kWh: not imported yet');
     $('dgPlan').classList.toggle('on', planView);
     $('dgAlt').classList.toggle('on', !planView);
+  }
+  // Use data: a meter file (PG&E's electric interval CSV, 15-minute readings), read in this page and kept only here. The
+  // readings are kept by day and by 15-minute slot from midnight, in clock time. A day is complete with 92 or more slots:
+  // 92 on the day the clocks spring forward; on the day they fall back, a repeated slot adds to its first reading.
+  var USE = null, useLoads = 0, windowC = null, windowId = 0;
+  function parseUsage(text) {
+    var days = {}, col = 4, count = 0;
+    String(text).split(/\r?\n/).forEach(function (line) {
+      var f = line.split(',');
+      if (/^\s*TYPE\s*$/i.test(f[0] || '')) {
+        f.forEach(function (name, i) { if (/^\s*USAGE/i.test(name)) col = i; });   // the usage column, as the header names it
+        return;
+      }
+      if (!/^\s*electric\s+usage\s*$/i.test(f[0] || '')) return;
+      var d = (f[1] || '').trim(), hm = /^(\d{1,2}):(\d{2})$/.exec((f[2] || '').trim()), kwh = parseFloat(f[col]);
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(d) || !hm || !isFinite(kwh)) return;
+      var slot = (parseInt(hm[1], 10) * 60 + parseInt(hm[2], 10)) / 15;
+      if (slot !== Math.floor(slot) || slot < 0 || slot > 95) return;
+      var day = days[d] || (days[d] = { kwh: [], n: 0 });
+      if (day.kwh[slot] === undefined) day.n++;
+      day.kwh[slot] = (day.kwh[slot] || 0) + kwh;
+      count++;
+    });
+    return { days: days, count: count };
+  }
+  function usageDays() { return USE ? Object.keys(USE.days).sort() : []; }
+  function dayKwh(k) { var s = 0; USE.days[k].kwh.forEach(function (v) { s += v || 0; }); return s; }
+  function completeDay(k) { return !!USE && !!USE.days[k] && USE.days[k].n >= 92; }
+  function fmtDay(k) { return MNAMES[+k.slice(5, 7) - 1] + ' ' + +k.slice(8, 10) + ', ' + k.slice(0, 4); }
+  function signed(x) { return (x >= 0 ? '+' : '−') + Math.abs(x).toFixed(1); }
+  function signedK(x) { return (x >= 0 ? '+' : '−') + fmtK(Math.abs(x)); }
+  function useStatus(msg) { $('useStatus').textContent = msg; }
+  // The usage day for a model day: the latest day in the file with the same month and day, or null.
+  function useKeyFor(D) {
+    var mmdd = String(D.month).padStart(2, '0') + '-' + String(D.day).padStart(2, '0'), found = null;
+    usageDays().forEach(function (k) { if (k.slice(5) === mmdd) found = k; });
+    return found;
+  }
+  // The model's day of the year for a usage day (the same month and day); null for February 29, which the model's year lacks.
+  function modelDayOf(k) {
+    var m = +k.slice(5, 7), d = +k.slice(8, 10);
+    if (m < 1 || m > 12 || d < 1 || d > MDAYS[m - 1] || (m === 2 && d === 29)) return null;
+    return C.dayOfYear(m, d);
+  }
+  // The use line for the selected day, in kW at each quarter hour on the clock, or null when the file has no readings for it.
+  function useForDay(D) {
+    var k = USE ? useKeyFor(D) : null, day = k ? USE.days[k] : null;
+    if (!day) return null;
+    var pts = [];
+    for (var s = 0; s < 96; s++) if (day.kwh[s] !== undefined) pts.push({ t: s * 0.25 + 0.125, kw: day.kwh[s] / 0.25 });
+    return pts;
+  }
+  // The complete calendar months of the file (every day in the month present and complete), with their use in kWh.
+  function completeMonths() {
+    var byYm = {};
+    usageDays().forEach(function (k) {
+      var ym = k.slice(0, 7), e = byYm[ym] || (byYm[ym] = { kwh: 0, days: 0 });
+      e.kwh += dayKwh(k);
+      if (completeDay(k)) e.days++;
+    });
+    return Object.keys(byYm).sort().filter(function (ym) {
+      return byYm[ym].days === new Date(+ym.slice(0, 4), +ym.slice(5, 7), 0).getDate();
+    }).map(function (ym) { return { ym: ym, m: +ym.slice(5, 7) - 1, kwh: byYm[ym].kwh }; });
+  }
+  // The monthly use for the date graph: one value per calendar month, the latest complete year when a month appears twice.
+  function monthlyUse() {
+    var latest = {};
+    completeMonths().forEach(function (c) { latest[c.m] = c.kwh; });
+    return Object.keys(latest).map(function (m) { return { m: +m, kwh: latest[m] }; });
+  }
+  function loadUsage(text) {
+    var parsed = parseUsage(text);
+    if (!parsed.count) { useStatus('No electric usage readings in that text: the file should have rows that start "Electric usage".'); return; }
+    USE = { days: parsed.days, count: parsed.count };
+    useLoads++;
+    windowC = null;
+    var keys = usageDays(), done = keys.filter(completeDay), last = done.length ? done[done.length - 1] : keys[keys.length - 1];
+    var total = 0;
+    keys.forEach(function (k) { total += dayKwh(k); });
+    useStatus('Loaded the usage file: ' + keys.length + ' days, ' + fmtDay(keys[0]) + ' to ' + fmtDay(keys[keys.length - 1]) +
+      ', ' + done.length + ' complete, ' + total.toFixed(1) + ' kWh.');
+    // The day slider goes to the file's last complete day, so there is a day to look at.
+    var N = C.dayOfYear(+last.slice(5, 7), +last.slice(8, 10));
+    if (isFinite(N)) $('day').value = String(N);
+    redraw('full');
+  }
+  function clearUsage() {
+    USE = null; windowC = null; useStatus('');
+    $('useText').value = '';
+    redraw('full');
+  }
+  // The clear-sky output of each complete day in the file, one day a step (as the year is), so the nets over those days are
+  // exact. A newer change cancels the steps still pending.
+  function requestWindow(prm, sc) {
+    if (!USE) { windowC = null; renderUse(prm); return; }
+    var key = JSON.stringify([yearKey(prm), useLoads]);
+    if (windowC && windowC.key === key) { renderUse(prm); return; }
+    var fullMonths = {};
+    completeMonths().forEach(function (c) { fullMonths[c.ym] = true; });
+    var st = { key: key, rows: {}, done: false,
+      todo: usageDays().filter(function (k) { return completeDay(k) && !fullMonths[k.slice(0, 7)] && modelDayOf(k) !== null; }) };
+    windowC = st;
+    var id = ++windowId, i = 0, ef = eFactor(prm);
+    function next() {
+      if (id !== windowId) return;
+      if (i >= st.todo.length) { st.done = true; renderUse(prm); return; }
+      var k = st.todo[i++], N = modelDayOf(k);
+      st.rows[k] = { plan: C.daily(sc.original, N, prm).kwh * ef, alt: C.daily(sc.alternative, N, prm).kwh * ef };
+      renderUse(prm);
+      setTimeout(next, 0);
+    }
+    renderUse(prm);
+    setTimeout(next, 0);
+  }
+  // The summary of the use file. Complete months use the year's monthly output (the same figures as the monthly labels); days
+  // in partial months use their own clear-sky output. Net is use minus output: + is import from the grid, − is export. The
+  // selected day is listed when it is complete in the file.
+  function renderUse(prm) {
+    var box = $('useSum');
+    if (!USE) { box.innerHTML = ''; return; }
+    var keys = usageDays(), done = keys.filter(completeDay), months = completeMonths(), rows = windowC ? windowC.rows : {};
+    var yearReady = !!yearC && yearC.key === yearKey(prm) && yearC.done, dayReady = !windowC || windowC.done;
+    var ready = (months.length === 0 || yearReady) && dayReady;
+    var mUse = 0, mOut = { plan: 0, alt: 0 }, dUse = 0, dOut = { plan: 0, alt: 0 }, dDays = 0, monthly = '';
+    months.forEach(function (c) {
+      var p = yearReady ? yearC.original[c.m] : null, a = yearReady ? yearC.alternative[c.m] : null;
+      if (yearReady) { mUse += c.kwh; mOut.plan += p; mOut.alt += a; }
+      monthly += '<tr><td>' + MNAMES[c.m] + ' ' + c.ym.slice(0, 4) + '</td><td>' + c.kwh.toFixed(1) + '</td><td>' +
+        (p == null ? '…' : p.toFixed(1)) + '</td><td>' + (p == null ? '…' : signed(c.kwh - p)) + '</td><td>' +
+        (a == null ? '…' : a.toFixed(1)) + '</td><td>' + (a == null ? '…' : signed(c.kwh - a)) + '</td></tr>';
+    });
+    keys.forEach(function (k) {
+      if (!rows[k]) return;
+      dDays++; dUse += dayKwh(k); dOut.plan += rows[k].plan; dOut.alt += rows[k].alt;
+    });
+    var totUse = mUse + dUse, totPlan = mOut.plan + dOut.plan, totAlt = mOut.alt + dOut.alt;
+    var num = function (x) { return ready ? x.toFixed(1) : '…'; }, net = function (x, y) { return ready ? signed(x - y) : '…'; };
+    var h = '<div class="note">Complete days in the file: ' + done.length + ' of ' + keys.length + ', ' + fmtDay(keys[0]) +
+      ' to ' + fmtDay(keys[keys.length - 1]) + (ready ? '' : ', still computing') + '.</div>' +
+      '<table class="cmp"><tr><th>Complete days</th><th>Plan</th><th>Alternative</th></tr>' +
+      '<tr><td>Use, kWh</td><td>' + num(totUse) + '</td><td>' + num(totUse) + '</td></tr>' +
+      '<tr><td>Output, kWh (clear sky)</td><td>' + num(totPlan) + '</td><td>' + num(totAlt) + '</td></tr>' +
+      '<tr><td>Net, kWh (+ import, − export)</td><td>' + net(totUse, totPlan) + '</td><td>' + net(totUse, totAlt) + '</td></tr></table>';
+    if (months.length) {
+      h += '<table class="cmp"><tr><th>Complete months</th><th>Use, kWh</th><th>Plan output</th><th>Plan net</th>' +
+        '<th>Alternative output</th><th>Alternative net</th></tr>' + monthly + '</table>';
+    }
+    if (dDays && dayReady) {
+      h += '<div class="note">Days in partial months: ' + dDays + ' days, use ' + dUse.toFixed(1) + ' kWh; plan output ' +
+        dOut.plan.toFixed(1) + ' kWh, net ' + signed(dUse - dOut.plan) + '; alternative output ' + dOut.alt.toFixed(1) +
+        ' kWh, net ' + signed(dUse - dOut.alt) + '.</div>';
+    }
+    var D = dateInfo(), k = useKeyFor(D), dd = freshDay(prm, D.N);
+    if (k && completeDay(k) && dd) {
+      var u = dayKwh(k), op = dd.en.original.kwh * eFactor(prm), oa = dd.en.alternative.kwh * eFactor(prm);
+      h += '<div class="note">' + fmtDay(k) + ' (selected): use ' + u.toFixed(1) + ' kWh; output ' + op.toFixed(1) + ' kWh plan, ' +
+        oa.toFixed(1) + ' kWh alternative; net ' + signed(u - op) + ' plan, ' + signed(u - oa) + ' alternative.</div>';
+    }
+    box.innerHTML = h;
   }
 
   // The time zone lookup: when the latitude or longitude changes, or the button is pressed, the zone for that location is
@@ -2023,6 +2207,16 @@ if (typeof document !== 'undefined') {
   $('grAlt').addEventListener('click', function () { GRAPH.view = 'alternative'; redraw('view'); });
   $('dgPlan').addEventListener('click', function () { GRAPH.view = 'plan'; redraw('view'); });
   $('dgAlt').addEventListener('click', function () { GRAPH.view = 'alternative'; redraw('view'); });
+  $('useFile').addEventListener('change', function (e) {
+    var f = e.target.files && e.target.files[0];
+    if (!f) return;
+    var rd = new FileReader();
+    rd.onload = function () { loadUsage(String(rd.result)); };
+    rd.readAsText(f);
+    e.target.value = '';
+  });
+  $('useLoadText').addEventListener('click', function () { loadUsage($('useText').value); });
+  $('useClear').addEventListener('click', clearUsage);
   SITE_FIELDS.forEach(function (id) { $(id).value = SITE_DEFAULTS[id]; });
   $('zoneList').innerHTML = zoneNames().map(function (z) { return '<option value="' + z + '">'; }).join('');
   $('knobsO').innerHTML = buildKnobs('o_', DEF_O);
