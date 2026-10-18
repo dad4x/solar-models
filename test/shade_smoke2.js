@@ -42,18 +42,18 @@ function makeEl(id, init) {
 
 // Row defaults as the page has them: panels, as-drawn gaps (inches), and the baseline locations on graph paper as
 // right and up in ft from the origin 0,0. The extra inner north and south rows are off.
-const ROWS = ['OL', 'IL', 'IR', 'OR', 'N', 'NI', 'SI', 'S'];
-const DNS = ['N', 'NI', 'SI', 'S'];
-const N_DEF = { OL: 10, IL: 7, IR: 7, OR: 10, N: 5, NI: 5, SI: 5, S: 5 };
-const GAP = { OL: '10.068', IL: '13.772', IR: '13.772', OR: '10.068', N: '8.327', NI: '8.327', SI: '8.327', S: '8.327' };
-const BASE_O = { OL: 3, IL: 3, IR: 3, OR: 3, N: 3, NI: 3, SI: 3, S: 3 };
-const BASE_A = { OL: 3, IL: 5, IR: 5, OR: 3, N: 5, NI: 5, SI: 5, S: 3 };
-const RIGHT = { OL: 0.5, IL: 12.9, IR: 24.1, OR: 36.2, N: 10, NI: 10, SI: 10, S: 10 };
-const UP = { OL: 0, IL: 8, IR: 8, OR: 0, N: 42, NI: 30, SI: 12, S: 0 };
+const ROWS = ['OL', 'IL', 'IR', 'OR', 'N', 'NI', 'SI', 'S', 'X1', 'X2', 'X3', 'X4'];
+const DNS = ['N', 'NI', 'SI', 'S', 'X1', 'X2', 'X3', 'X4'];
+const N_DEF = { OL: 10, IL: 7, IR: 7, OR: 10, N: 5, NI: 5, SI: 5, S: 5, X1: 5, X2: 5, X3: 5, X4: 5 };
+const GAP = { OL: '10.068', IL: '13.772', IR: '13.772', OR: '10.068', N: '8.327', NI: '8.327', SI: '8.327', S: '8.327', X1: '8.327', X2: '8.327', X3: '8.327', X4: '8.327' };
+const BASE_O = { OL: 3, IL: 3, IR: 3, OR: 3, N: 3, NI: 3, SI: 3, S: 3, X1: 3, X2: 3, X3: 3, X4: 3 };
+const BASE_A = { OL: 3, IL: 5, IR: 5, OR: 3, N: 5, NI: 5, SI: 5, S: 3, X1: 5, X2: 5, X3: 5, X4: 5 };
+const RIGHT = { OL: 0.5, IL: 12.9, IR: 24.1, OR: 36.2, N: 10, NI: 10, SI: 10, S: 10, X1: 10, X2: 10, X3: 10, X4: 10 };
+const UP = { OL: 0, IL: 8, IR: 8, OR: 0, N: 42, NI: 30, SI: 12, S: 0, X1: 54, X2: 66, X3: 78, X4: 90 };
 // Version 3 layout: each row's top-left corner, left of the old origin and down from the old top edge.
-const LEFT3 = { OL: 0, IL: 12.4, IR: 18.728, OR: 30.828, N: 9.5, NI: 9.5, SI: 9.5, S: 9.5 };
-const DOWN3 = { OL: 4.872, IL: 7.872, IR: 7.872, OR: 4.872, N: 0, NI: 12, SI: 30, S: 42 };
-const onOf = g => g !== 'NI' && g !== 'SI';
+const LEFT3 = { OL: 0, IL: 12.4, IR: 18.728, OR: 30.828, N: 9.5, NI: 9.5, SI: 9.5, S: 9.5, X1: 9.5, X2: 9.5, X3: 9.5, X4: 9.5 };
+const DOWN3 = { OL: 4.872, IL: 7.872, IR: 7.872, OR: 4.872, N: 0, NI: 12, SI: 30, S: 42, X1: -12, X2: -24, X3: -36, X4: -48 };
+const onOf = g => g !== 'NI' && g !== 'SI' && !g.startsWith('X');
 
 const defaults = {
   rise: {}, wallh: {}, walldx: {}, alb: {}, bif: {}, rating: {}, sf: {}, cap: {}, meas: {},
@@ -450,7 +450,14 @@ const LOOMIS_YEAR = 'Year, kWh: plan 40,437 · alternative 41,087';
   expectEq('the inner south row is still spare, so Add row stays available', elements.addRowO.disabled, false);
   fire('addRowO', 'click');
   expectEq('the next Add row switches on the inner south row', elements.o_SI_on.checked, true);
-  expectEq('with all four rows on, Add row is greyed out', elements.addRowO.disabled, true);
+  expectEq('the extra north rows come next, so Add row stays available', elements.addRowO.disabled, false);
+  fire('addRowO', 'click');
+  expectEq('the first extra north row, nearest the north row, is next', elements.o_X1_on.checked, true);
+  expectEq('... and opens its box', rowFolded('o_', 'X1'), false);
+  for (let k = 0; k < 3; k++) fire('addRowO', 'click');
+  expectEq('the fourth extra north row switches on last', elements.o_X4_on.checked, true);
+  expectEq('with all eight rows on, Add row is greyed out', elements.addRowO.disabled, true);
+  expectEq('plan: the eight rows and four columns on make 74 modules (34 + 40)', capO(), '74');
   const onBeforeClick = checkedRows('o_');
   fire('addRowO', 'click');
   expectEq('clicking a greyed-out Add row changes nothing', checkedRows('o_'), onBeforeClick);
@@ -502,7 +509,7 @@ const LOOMIS_YEAR = 'Year, kWh: plan 40,437 · alternative 41,087';
   expectEq('all rows 2 ft east: year total changes', yearText() !== yBefore, true);
   setVal('a_all_dx', '0'); fire('knobsA', 'change'); flush();
   expectEq('all rows back: year total restored', yearText(), yBefore);
-  expectEq('group rows in the table (header plus 8)', (elements.grp.innerHTML.match(/<tr>/g) || []).length, 9);
+  expectEq('group rows in the table (header plus 12)', (elements.grp.innerHTML.match(/<tr>/g) || []).length, 13);
 
   // Original side and the cap measurement.
   setVal('o_OR_tilt', '30'); fire('knobsO', 'change');
