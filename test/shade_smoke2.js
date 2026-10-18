@@ -61,7 +61,7 @@ const defaults = {
   stage: {}, boxO: {}, boxA: {}, boxT: {}, ctrlO: {}, ctrlA: {}, modO: {}, modA: {}, moduleInfo: {}, seasonLabel: {}, seasons: {},
   helpPop: {},
   day: { value: '355' }, time: { value: '9' },
-  knobsO: {}, knobsA: {}, yearLabel: {},
+  knobsO: {}, knobsA: {}, yearLabel: {}, addRowO: {}, addColO: {}, addRowA: {}, addColA: {},
   scName: { value: 'Scenario 1' }, scSave: {}, scFile: { files: [], value: '' }, scText: { value: '' },
   scLoadText: {}, scStatus: {}, cmp: {},
   tip: { style: {}, offsetWidth: 200 },
@@ -76,7 +76,10 @@ for (const [pre, base] of [['o_', BASE_O], ['a_', BASE_A]]) {
   defaults[pre + 'all_dx'] = { value: '0' };
   defaults[pre + 'all_dy'] = { value: '0' };
   for (const g of ROWS) {
-    defaults[pre + g + '_on'] = { checked: onOf(g) };
+    defaults[pre + g + '_on'] = { checked: onOf(g), type: 'checkbox' };
+    // Each row's box, folded while its On box is off, as the page builds it.
+    const rowBox = makeClassList(); if (!onOf(g)) rowBox.add('collapsed');
+    defaults['rb_' + pre + g] = { classList: rowBox };
     defaults[pre + g + '_n'] = { value: String(N_DEF[g]) };
     defaults[pre + g + '_base'] = { value: String(base[g]) };
     defaults[pre + g + '_tilt'] = { value: '45' };
@@ -144,6 +147,12 @@ const capO = () => (elements.capO.textContent.match(/(\d+) modules/) || [])[1];
 const capA = () => (elements.capA.textContent.match(/(\d+) modules/) || [])[1];
 const onlySide = (rows, all) => Object.assign({ rows: rows }, all);
 const rowsOf = fn => { const o = {}; ROWS.forEach(g => { o[g] = fn(g); }); return o; };
+// Ticks or unticks one row's On box and sends the change the browser sends, with the box as its target.
+const rowOn = (prefix, g, on) => { setChk(prefix + g + '_on', on); fireEv(prefix === 'o_' ? 'knobsO' : 'knobsA', 'change', { target: elements[prefix + g + '_on'] }); };
+const rowFolded = (prefix, g) => elements['rb_' + prefix + g].classList.contains('collapsed');
+const checkedRows = prefix => ROWS.filter(g => elements[prefix + g + '_on'].checked).length;
+// The scenario object inside a saved file's text, read the way the page's own parser reads it.
+const scenarioOf = text => { const i = text.indexOf('var ARRAY_SCENARIO'); return JSON.parse(text.slice(text.indexOf('=', i) + 1).trim().replace(/;\s*$/, '')); };
 const SITE = { rise: '5', wallh: '3', walldx: '1.3', alb: '0.4', bif: '0.7', rating: '500', sf: '0.85', cap: '10', meas: 'local' };
 const loadRaw = obj => { elements.scText.value = 'var ARRAY_SCENARIO = ' + JSON.stringify(obj) + ';'; fire('scLoadText', 'click'); flush(); };
 const LOOMIS_YEAR = 'Year, kWh: plan 40,437 · alternative 41,087';
@@ -420,6 +429,66 @@ const LOOMIS_YEAR = 'Year, kWh: plan 40,437 · alternative 41,087';
   expectEq('inner south row on as well: alternative modules', capA(), '54');
   setChk('a_NI_on', false); setChk('a_SI_on', false); fire('knobsA', 'change');
   expectEq('extra rows off again: alternative modules', capA(), '44');
+
+  // Add row and Add column. Each card has four east-west rows and four north-south rows, and a spare one is off. The button
+  // switches on the next spare row and opens its box; ticking or unticking a row's On box opens or folds its box the same way.
+  ROWS.forEach(g => rowOn('o_', g, onOf(g)));
+  expectEq('plan: Add row greyed out while all four east-west rows are on', elements.addRowO.disabled, true);
+  expectEq('plan: Add column available while an inner north or south row is off', elements.addColO.disabled, false);
+  expectEq('alternative: Add row greyed out while all four east-west rows are on', elements.addRowA.disabled, true);
+  expectEq('alternative: Add column available while an inner north or south row is off', elements.addColA.disabled, false);
+  expectEq('the inner north row starts folded', rowFolded('o_', 'NI'), true);
+  rowOn('o_', 'NI', true);
+  expectEq('ticking an inner row opens its box', rowFolded('o_', 'NI'), false);
+  rowOn('o_', 'NI', false);
+  expectEq('unticking it folds the box again', rowFolded('o_', 'NI'), true);
+
+  fire('addColO', 'click');
+  expectEq('Add column switches on the first off north-south row, the inner north', elements.o_NI_on.checked, true);
+  expectEq('... and opens its box', rowFolded('o_', 'NI'), false);
+  expectEq('the inner south row is still spare, so Add column stays available', elements.addColO.disabled, false);
+  fire('addColO', 'click');
+  expectEq('the next Add column switches on the inner south row', elements.o_SI_on.checked, true);
+  expectEq('with all four north-south rows on, Add column is greyed out', elements.addColO.disabled, true);
+  const onBeforeClick = checkedRows('o_');
+  fire('addColO', 'click');
+  expectEq('clicking a greyed-out Add column changes nothing', checkedRows('o_'), onBeforeClick);
+
+  expectEq('Add row still greyed out while all east-west rows are on', elements.addRowO.disabled, true);
+  rowOn('o_', 'OL', false); rowOn('o_', 'IR', false);
+  expectEq('an off east-west row makes Add row available', elements.addRowO.disabled, false);
+  expectEq('the switched-off outer west row folds away', rowFolded('o_', 'OL'), true);
+  fire('addRowO', 'click');
+  expectEq('Add row switches on the first off east-west row, the outer west', elements.o_OL_on.checked, true);
+  expectEq('... and opens its box', rowFolded('o_', 'OL'), false);
+  expectEq('the inner east row is still spare, so Add row stays available', elements.addRowO.disabled, false);
+  fire('addRowO', 'click');
+  expectEq('the next Add row switches on the inner east row', elements.o_IR_on.checked, true);
+  expectEq('with all four east-west rows on again, Add row is greyed out', elements.addRowO.disabled, true);
+
+  // A saved scenario sets the On boxes on load, and each row's box follows its On box: a row on in the file opens, and one off folds.
+  // Saving waits for the yearly totals after a change, so each change is flushed before the save, and the saved text is checked.
+  rowOn('o_', 'NI', true); flush();
+  fire('scSave', 'click'); flush();
+  const innerOn = elements.scText.value;
+  expectEq('the file saved with the inner north row on has it on', scenarioOf(innerOn).inputs.original.rows.NI.on, true);
+  rowOn('o_', 'NI', false); flush();
+  elements.scText.value = innerOn; fire('scLoadText', 'click'); flush();
+  expectEq('loading a file with the inner north row on ticks it', elements.o_NI_on.checked, true);
+  expectEq('the loaded inner north row opens its box', rowFolded('o_', 'NI'), false);
+  rowOn('o_', 'NI', false); flush();
+  fire('scSave', 'click'); flush();
+  const innerOff = elements.scText.value;
+  expectEq('the file saved with it off has the inner north row off', scenarioOf(innerOff).inputs.original.rows.NI.on, false);
+  rowOn('o_', 'NI', true); flush();
+  elements.scText.value = innerOff; fire('scLoadText', 'click'); flush();
+  expectEq('loading a file with the inner north row off unticks it', elements.o_NI_on.checked, false);
+  expectEq('the loaded inner north row folds its box', rowFolded('o_', 'NI'), true);
+
+  // Back to the default rows for the checks after this.
+  ROWS.forEach(g => rowOn('o_', g, onOf(g)));
+  expectEq('default rows again: Add row greyed out', elements.addRowO.disabled, true);
+  expectEq('default rows again: Add column available', elements.addColO.disabled, false);
 
   // Positions from 0,0: moving the outer west row, then every row with the all-rows control.
   flush();
