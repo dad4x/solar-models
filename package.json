@@ -1,0 +1,9 @@
+{
+  "name": "solar-models",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Array shading and output renders for ground-mounted bifacial PV layouts",
+  "scripts": {
+    "test": "node test/shade_rows_check.js && node test/shade_smoke2.js"
+  }
+}

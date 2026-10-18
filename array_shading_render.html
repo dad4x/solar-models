@@ -1,0 +1,1565 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Array shading: original vs alternative</title>
+<style>
+:root{--ink:#1d2430;--muted:#5b6472;--line:#d5dae1;--bg:#f6f7f9;--accent:#2f6fb0}
+*{box-sizing:border-box}
+body{margin:0;font:14px/1.45 system-ui,-apple-system,"Segoe UI",sans-serif;color:var(--ink);background:var(--bg)}
+main{max-width:1280px;margin:0 auto;padding:16px}
+h1{font-size:18px;margin:0 0 4px}
+h2{font-size:14px;margin:12px 0 6px}
+.lead{margin:0 0 10px;color:var(--muted);max-width:95ch}
+fieldset{border:1px solid var(--line);border-radius:8px;background:#fff;padding:8px 12px 10px;margin:0 0 10px}
+legend{font-size:12px;color:var(--muted);padding:0 4px}
+.row{display:flex;flex-wrap:wrap;gap:8px 16px;align-items:center}
+label{display:flex;gap:6px;align-items:center;font-size:13px}
+input[type=number]{width:70px;font:inherit}
+select,button{font:inherit}
+button{border:1px solid var(--line);background:#fff;border-radius:6px;padding:4px 10px;cursor:pointer}
+button.on{background:var(--accent);color:#fff;border-color:var(--accent)}
+.knobgrid{display:grid;grid-template-columns:minmax(0,1fr);gap:10px}
+.knobgrid fieldset{margin:0;min-width:0}
+table.knobs{font-size:12px;width:100%}
+table.knobs th,table.knobs td{padding:4px 5px;text-align:left;vertical-align:middle}
+table.knobs input[type=number]{width:58px;font:inherit}
+.kc{display:flex;flex-direction:column;gap:2px;min-width:80px}
+.kc input.kr{width:100%;margin:0}
+.tw{overflow-x:auto}
+.readout{font-variant-numeric:tabular-nums;font-weight:600;margin:4px 0 6px}
+.views{display:grid;grid-template-columns:1fr 1fr 96px;gap:12px;margin:6px 0 10px;align-items:center}
+.card{background:#fff;border:1px solid var(--line);border-radius:8px;padding:8px}
+.card h2{margin:2px 0 6px;font-size:14px}
+canvas{display:block;width:100%;height:auto;border-radius:6px;touch-action:none;cursor:grab}
+.vwrap{position:relative;width:96px;height:380px}
+.vticks{position:absolute;left:0;top:0;width:52px;height:100%;font-size:11px;color:var(--muted)}
+.vticks span{position:absolute;right:0;transform:translateY(-50%);white-space:nowrap}
+.vtrack{position:absolute;left:58px;top:0;width:36px;height:100%}
+.vtrack input{position:absolute;left:50%;top:50%;width:360px;height:36px;margin:0;transform:translate(-50%,-50%) rotate(90deg)}
+.daybar{background:#fff;border:1px solid var(--line);border-radius:8px;padding:10px 14px 6px;margin:0 0 10px}
+.dtop{display:flex;justify-content:space-between;align-items:baseline;flex-wrap:wrap;gap:4px 16px;margin-bottom:4px}
+.dlabel{font-weight:600;font-variant-numeric:tabular-nums;margin-bottom:4px}
+.ylabel{font-size:13px;font-variant-numeric:tabular-nums}
+.mo{color:var(--muted)}
+.mp{color:var(--accent)}
+.dwrap input{width:100%;margin:0}
+.ticks{position:relative;height:50px;font-size:11px;color:var(--muted);margin-top:4px}
+.ticks .mt{position:absolute;top:0;transform:translateX(-50%);text-align:center;white-space:nowrap;line-height:1.35}
+.ticks .mt b,.ticks .mt i{display:block;font-style:normal}
+.ticks .mt b{font-weight:600;color:var(--ink)}
+.legend{display:flex;flex-wrap:wrap;gap:6px 14px;font-size:12px;color:var(--muted);margin:4px 0 10px}
+.sw{display:inline-block;width:14px;height:10px;border:1px solid #888;vertical-align:middle;margin-right:4px}
+table{border-collapse:collapse;width:100%;font-size:13px;background:#fff}
+th,td{text-align:left;padding:5px 8px;border-bottom:1px solid var(--line);font-variant-numeric:tabular-nums;vertical-align:top}
+th{font-weight:600;color:var(--muted)}
+.card.t{padding:0;overflow-x:auto;margin-bottom:10px}
+.strip{display:grid;grid-template-columns:repeat(5,1fr);gap:8px;margin-bottom:8px}
+.strip canvas{border:1px solid var(--line)}
+.note{font-size:12px;color:var(--muted);line-height:1.5;margin-top:10px}
+table.cmp{font-size:12px;width:auto;margin-top:6px}
+table.cmp th,table.cmp td{padding:3px 8px;border-bottom:1px solid var(--line);text-align:right}
+table.cmp th:first-child,table.cmp td:first-child{text-align:left}
+.diff{color:#b42318;font-weight:600}
+.tip{position:fixed;display:none;pointer-events:none;z-index:20;background:rgba(29,36,48,.95);color:#fff;font:12px/1.45 system-ui,-apple-system,"Segoe UI",sans-serif;padding:6px 9px;border-radius:6px;white-space:nowrap;box-shadow:0 2px 8px rgba(0,0,0,.25)}
+@media (max-width:820px){.views{grid-template-columns:1fr}.vwrap{margin:0 auto}.strip{grid-template-columns:repeat(2,1fr)}}
+</style>
+</head>
+<body>
+<main>
+<h1>Array shading: original vs alternative</h1>
+<p class="lead">Left: the original, with rows as drawn at the defaults (44 modules). Right: the alternative at its defaults (inner rows 2 ft above the outer rows, north row with them, south row kept). Each row has an On box, a panel count, and sliders for base, tilt, gap, and its position on graph paper: right (east) and up (north) from the origin 0,0 at the south-west corner of the sketch, 0 to 50 ft, with the defaults at the baseline locations. North and south rows also take a height difference. The inner north and south rows are off by default. The sun path comes from the location below, so the same page serves another site: set the location, the site inputs, and the rows, then save a scenario. Hover a panel for its front and back estimated output. The line under the date and time on each view gives the array's output now and for the selected day. Red outline = module top above the height cap. Gold = sunlit, slate = shaded.</p>
+
+<fieldset>
+<legend>Camera (drag a view to orbit, scroll to zoom)</legend>
+<div class="row">
+<button class="on" data-cam="135,32,1">Southeast</button>
+<button data-cam="90,12,1">From east</button>
+<button data-cam="180,14,1">From south</button>
+<button data-cam="135,82,1">Overhead</button>
+</div>
+</fieldset>
+
+<fieldset>
+<legend>Scenario: save or load parameters and summary results (.js)</legend>
+<div class="row">
+<label>Name <input id="scName" type="text" value="Scenario 1" style="width:170px"></label>
+<button id="scSave">Save scenario (.js)</button>
+<label>Load file <input id="scFile" type="file" accept=".js,text/javascript"></label>
+<span id="scStatus" class="note"></span>
+</div>
+<div id="cmp"></div>
+<details style="margin-top:8px"><summary>Scenario text: copy it out, or paste a saved scenario here</summary>
+<textarea id="scText" rows="8" style="width:100%;font:12px/1.4 Consolas,ui-monospace,monospace;margin-top:6px"></textarea>
+<div class="row" style="margin-top:6px"><button id="scLoadText">Load from text</button></div>
+</details>
+</fieldset>
+
+<fieldset>
+<legend>Location and clock</legend>
+<div class="row">
+<label>Latitude, degrees (north positive) <input id="latitude" type="number" step="0.1" min="-89.5" max="89.5"></label>
+<label>Longitude, degrees (east positive) <input id="longitude" type="number" step="0.1" min="-180" max="180"></label>
+<button id="zoneLookup">Look up time zone</button>
+<label>Time zone <input id="timeZone" type="text" list="zoneList" style="width:210px"></label>
+<datalist id="zoneList"></datalist>
+</div>
+<div class="row" style="margin-top:6px"><span id="zoneStatus" class="note"></span></div>
+<p class="note">Latitude and longitude as map apps show them, so south and west are negative. Changing either one looks up the time zone, which sets the clock labels and daylight time; the lookup sends only those two numbers to open-meteo.com. You can also type a zone or pick one from the list, which works offline. The zone is saved in each scenario file.</p>
+</fieldset>
+
+<fieldset>
+<legend>Site and energy inputs (feet unless noted)</legend>
+<div class="row">
+<label>Site rise, south to north <input id="rise" type="number" step="0.5"></label>
+<label>Wall height <input id="wallh" type="number" step="0.5"></label>
+<label>Wall east of outer east base <input id="walldx" type="number" step="0.5"></label>
+<label>Ground albedo <input id="alb" type="number" step="0.05"></label>
+<label>Bifaciality <input id="bif" type="number" step="0.05"></label>
+<label>Module rating, W (front, STC) <input id="rating" type="number" step="5"></label>
+<label>System factor (temperature, soiling, inverter, wiring) <input id="sf" type="number" step="0.01"></label>
+</div>
+<div class="row" style="margin-top:8px">
+<label>Height cap <input id="cap" type="number" step="0.5"></label>
+<label>Cap measured from <select id="meas"><option value="local">grade under each row</option><option value="lowest">lowest grade on the site</option></select></label>
+</div>
+</fieldset>
+
+<div class="knobgrid">
+<fieldset>
+<legend>Original: rows (defaults = as drawn)</legend>
+<div id="knobsO"></div>
+</fieldset>
+<fieldset>
+<legend>Alternative: rows (defaults = inner rows 2 ft up, north row with them, south kept)</legend>
+<div id="knobsA"></div>
+</fieldset>
+</div>
+<p class="note">Base = lowest edge above grade (north and south rows: at the row's middle). Height difference = first to last module, + = east higher. Gap = space between modules in a row, in inches. Panels = modules in the row. Right and up place each row's base corner on graph paper, measured from the origin 0,0 at the south-west corner of the sketch; the defaults are the baseline locations. Panels and gap extend an east-west row north, and a north-south row east, from that corner. Turn the inner north and south rows on to try four rows in the north-south direction, with the east-west rows off. All rows moves every row together, right (+E) and up (+N). Each setting has a slider over its number box, with the ranges in the headings; type a value in the box for anything outside a slider's range.</p>
+
+<div id="timeLabel" class="readout"></div>
+
+<div class="views">
+<div class="card"><h2 id="capO">Original</h2><canvas id="cO" width="640" height="460"></canvas></div>
+<div class="card"><h2 id="capA">Alternative</h2><canvas id="cA" width="640" height="460"></canvas></div>
+<div class="vwrap">
+<div class="vticks" id="vticks"></div>
+<div class="vtrack"><input id="time" type="range" min="6" max="21" step="0.25" value="9"></div>
+</div>
+</div>
+
+<div class="daybar">
+<div class="dtop">
+<div class="dlabel" id="dateLabel"></div>
+<div class="ylabel" id="yearLabel"></div>
+</div>
+<div class="dwrap">
+<input id="day" type="range" min="1" max="365" step="1" value="355">
+<div class="ticks" id="mticks"></div>
+</div>
+</div>
+
+<div class="legend">
+<span><i class="sw" style="background:#f0c040"></i>sunlit</span>
+<span><i class="sw" style="background:#3a4657"></i>shaded</span>
+<span><i class="sw" style="background:#7b818a"></i>no direct sun on that face</span>
+<span><i class="sw" style="background:#d9dee6"></i>back of panel visible</span>
+<span><i class="sw" style="border:2px solid #d62828;background:#fff"></i>top above height cap</span>
+<span><i class="sw" style="background:#e9e0c9"></i>ground</span>
+<span><i class="sw" style="background:rgba(25,31,43,.28)"></i>cast shadow</span>
+</div>
+
+<div class="card t"><table id="sum"></table></div>
+<div class="card t"><table id="grp"></table></div>
+
+<h2>Same date at five solar times</h2>
+<div class="strip">
+<canvas id="o0" width="300" height="220"></canvas><canvas id="o1" width="300" height="220"></canvas><canvas id="o2" width="300" height="220"></canvas><canvas id="o3" width="300" height="220"></canvas><canvas id="o4" width="300" height="220"></canvas>
+</div>
+<div class="strip">
+<canvas id="a0" width="300" height="220"></canvas><canvas id="a1" width="300" height="220"></canvas><canvas id="a2" width="300" height="220"></canvas><canvas id="a3" width="300" height="220"></canvas><canvas id="a4" width="300" height="220"></canvas>
+</div>
+
+<p class="note">Geometry: row positions are read from your sketch, so measure them to confirm. Each row's base corner is placed from the origin 0,0 on graph paper (east and north positive); the baseline locations are the defaults. Base elevation is the lowest edge above local grade; for the north and south rows it is at the middle of the row, and the height difference runs from the first module to the last, each module level across its own width. Shading uses the sun path for the location above, the east wall (if on), and the modules only: no trees, house, or neighbor structures. The sketch's up is taken as true north, so the sun path matches the layout only when the sketch is drawn north-up. Output is a clear-sky estimate: direct beam, sky diffuse, and ground-reflected light on each face, with the back face scaled by the bifaciality input. Ground reflection is ray-traced from each face to the ground it sees; each ground point is tested for direct sun against the array and the wall, and the sky diffuse reaching that ground is not reduced by the array. Ground albedo (0.40) is a placeholder; set it for your surface. Output = irradiance × rating ÷ 1000 × system factor, so the rating is the front STC power over 2.205 m² (22.7% at 500 W). The system factor (0.85) is a placeholder for temperature, soiling, inverter, and wiring losses. Monthly and yearly totals use the 15th of each month, scaled by the days in that month; checked at the default site against every day of the year, each month is within 2% and the year within 0.1%. The height cap is checked two ways: from the grade under each row, or from the lowest grade on the site. Set the site rise to 0 to remove the slope. The height cap and setbacks are inputs; check them against the local code. The clock slider is local clock time in the time zone under Location, with that zone's daylight time for 2026. The sun is computed from apparent solar time, so the time zone changes the clock labels, not the energy.</p>
+</main>
+<div id="tip" class="tip"></div>
+<script>
+var CORE = (function () {
+  'use strict';
+  var D2R = Math.PI / 180;
+  var FT_PER_M = 3.2808399;
+  // Default site: the Loomis, CA sketch. Latitude and longitude in decimal degrees, north and east positive. The time
+  // zone is an IANA name; its offsets, daylight time included, come from the browser's time zone data.
+  var DEFAULT_SITE = { lat: 38.8, lon: -121.2, timeZone: 'America/Los_Angeles' };
+  // The year whose daylight-time dates set the clock labels (the sun itself does not depend on the zone).
+  var REF_YEAR = 2026;
+  var MOD_L = 2.10 * FT_PER_M, MOD_W = 1.05 * FT_PER_M;
+  var MOD_AREA_M2 = 2.10 * 1.05;
+  var SA = 20, SB = 2;
+  var VK = 24;
+  var GROUPS = ['OL', 'IL', 'IR', 'OR', 'N', 'NI', 'SI', 'S'];
+  var FACING = { OL: 'W', IL: 'W', IR: 'E', OR: 'E', N: 'S', NI: 'S', SI: 'S', S: 'S' };
+  var NAME = { OL: 'Outer row (faces W)', IL: 'Inner row (faces W)', IR: 'Inner row (faces E)',
+               OR: 'Outer row (faces E)', N: 'North row (faces S)', NI: 'Inner north row (faces S)',
+               SI: 'Inner south row (faces S)', S: 'South row (faces S)' };
+  // Panels per row in the baseline layout.
+  var DEFAULT_N = { OL: 10, IL: 7, IR: 7, OR: 10, N: 5, NI: 5, SI: 5, S: 5 };
+  // Baseline location of each row on graph paper, ft from the origin 0,0 (south-west corner of the sketch grid, east and
+  // north positive). East-west rows: the base corner; the modules step north from it. North-south rows: the west end
+  // and base edge; the modules step east from it.
+  var DEF_BASE = {
+    OL: [0.5, 0], IL: [12.9, 8], IR: [24.1, 8], OR: [36.2, 0],
+    N: [10, 42], NI: [10, 30], SI: [10, 12], S: [10, 0]
+  };
+
+  function clamp(v, lo, hi) { return v < lo ? lo : (v > hi ? hi : v); }
+  function add(a, b) { return [a[0] + b[0], a[1] + b[1], a[2] + b[2]]; }
+  function sub(a, b) { return [a[0] - b[0], a[1] - b[1], a[2] - b[2]]; }
+  function dot(a, b) { return a[0] * b[0] + a[1] * b[1] + a[2] * b[2]; }
+  function cross(a, b) { return [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]]; }
+  function unit(a) { var l = Math.sqrt(dot(a, a)); return [a[0] / l, a[1] / l, a[2] / l]; }
+
+  function dayOfYear(month, day) {
+    var md = [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31], n = day;
+    for (var i = 0; i < month - 1; i++) n += md[i];
+    return n;
+  }
+  // The browser's time zone data gives the offset (hours east of UTC) and short name of a zone at one instant.
+  var zoneFmt = {}, zoneCache = {};
+  function zoneFormatter(zone) {
+    if (!zoneFmt[zone]) {
+      zoneFmt[zone] = new Intl.DateTimeFormat('en-US', { timeZone: zone, hourCycle: 'h23', year: 'numeric', month: 'numeric',
+        day: 'numeric', hour: 'numeric', minute: 'numeric', second: 'numeric', timeZoneName: 'short' });
+    }
+    return zoneFmt[zone];
+  }
+  function zoneAt(zone, utcMs) {
+    var ms = Math.floor(utcMs / 1000) * 1000, v = {};
+    zoneFormatter(zone).formatToParts(new Date(ms)).forEach(function (p) { v[p.type] = p.value; });
+    var asUTC = Date.UTC(+v.year, +v.month - 1, +v.day, +v.hour, +v.minute, +v.second);
+    return { offset: Math.round((asUTC - ms) / 60000) / 60, name: v.timeZoneName || '' };
+  }
+  // The zone's offset and short name (PST, PDT, GMT+11, ...) at local noon on day N of REF_YEAR.
+  function zoneOnDay(zone, N) {
+    var key = zone + '|' + N;
+    if (!zoneCache[key]) {
+      var noon = Date.UTC(REF_YEAR, 0, N, 12), t = noon;
+      for (var i = 0; i < 3; i++) t = noon - zoneAt(zone, t).offset * 3600000;
+      zoneCache[key] = zoneAt(zone, t);
+    }
+    return zoneCache[key];
+  }
+  function zoneOffsetOnDay(zone, N) { return zoneOnDay(zone, N).offset; }
+  // The canonical IANA name for a zone the browser knows, or null.
+  function validZone(z) {
+    if (typeof z !== 'string' || !z) return null;
+    try { return new Intl.DateTimeFormat('en-US', { timeZone: z }).resolvedOptions().timeZone; } catch (e) { return null; }
+  }
+  // Apparent solar time (hours) at a site -> sun altitude, azimuth (from north, clockwise), unit vector (E, N, Up), and
+  // the local clock hour: solar + the zone's offset that day - longitude/15 - equation of time.
+  function sunPosition(N, solarHour, site) {
+    site = site || DEFAULT_SITE;
+    var G = 2 * Math.PI * (N - 1) / 365;
+    var decl = 0.006918 - 0.399912 * Math.cos(G) + 0.070257 * Math.sin(G)
+      - 0.006758 * Math.cos(2 * G) + 0.000907 * Math.sin(2 * G)
+      - 0.002697 * Math.cos(3 * G) + 0.00148 * Math.sin(3 * G);
+    var eot = 229.18 * (0.000075 + 0.001868 * Math.cos(G) - 0.032077 * Math.sin(G)
+      - 0.014615 * Math.cos(2 * G) - 0.040849 * Math.sin(2 * G));
+    var H = (solarHour - 12) * 15 * D2R, phi = site.lat * D2R;
+    var sinAlt = Math.sin(phi) * Math.sin(decl) + Math.cos(phi) * Math.cos(decl) * Math.cos(H);
+    var alt = Math.asin(clamp(sinAlt, -1, 1));
+    var cA = Math.cos(alt) * Math.cos(phi);
+    var cosAz = Math.abs(cA) > 1e-12 ? (Math.sin(decl) - sinAlt * Math.sin(phi)) / cA : 1;
+    var az = Math.acos(clamp(cosAz, -1, 1));
+    if (H > 0) az = 2 * Math.PI - az;
+    return {
+      alt: alt, az: az,
+      s: [Math.cos(alt) * Math.sin(az), Math.cos(alt) * Math.cos(az), Math.sin(alt)],
+      clock: solarHour + zoneOffsetOnDay(site.timeZone || DEFAULT_SITE.timeZone, N) - site.lon / 15 - eot / 60
+    };
+  }
+
+  // Clear-sky direct normal irradiance (W/m2), Meinel-style air-mass model.
+  function dniWm2(alt) {
+    if (alt <= 0) return 0;
+    var am = 1 / Math.sin(alt);
+    return 1353 * Math.pow(0.7, Math.pow(am, 0.678));
+  }
+
+  function solarText(h) {
+    var hh = Math.floor(h), m = Math.round((h - hh) * 60);
+    if (m === 60) { hh += 1; m = 0; }
+    return hh + ':' + (m < 10 ? '0' : '') + m;
+  }
+  function compassName(deg) {
+    var names = ['N', 'NE', 'E', 'SE', 'S', 'SW', 'W', 'NW'];
+    var d = ((deg % 360) + 360) % 360;
+    return names[Math.round(d / 45) % 8];
+  }
+
+  // p: { siteRise, wallH, wallDx }
+  // rows: one entry per row group: { on, n (panels), base (ft, lowest edge above local grade; N/S rows: at the middle),
+  //       tilt (deg), dz (N/S rows: height difference, first to last module, ft; + = east higher),
+  //       gap (ft between modules in the row), dx (ft east), dy (ft north), both from the baseline location }
+  function buildScene(p, rows) {
+    var L = MOD_L, W = MOD_W, slope = p.siteRise / 45;
+    function gz(y) { return slope * y; }
+    var mods = [];
+    function mk(group, P00, U, V, nrm) {
+      var c = [P00[0] + (U[0] + V[0]) / 2, P00[1] + (U[1] + V[1]) / 2, P00[2] + (U[2] + V[2]) / 2];
+      return { group: group, P00: P00, U: U, V: V, n: nrm, center: c,
+               corners: [P00, add(P00, V), add(add(P00, U), V), add(P00, U)], uu: dot(U, U), vv: dot(V, V) };
+    }
+    // E-W rows (face W or E): the base corner is placed; the modules step north from it.
+    function addEW(group, r) {
+      var n = r.n !== undefined ? r.n : DEFAULT_N[group];
+      var beta = r.tilt * D2R, cb = Math.cos(beta), sb = Math.sin(beta);
+      var sgn = FACING[group] === 'W' ? 1 : -1;
+      var xBase = DEF_BASE[group][0] + r.dx, yStart = DEF_BASE[group][1] + r.dy;
+      for (var i = 0; i < n; i++) {
+        var ys = yStart + i * (W + r.gap);
+        var zb = gz(ys + W / 2) + r.base;
+        mods.push(mk(group, [xBase, ys, zb], [sgn * L * cb, 0, L * sb], [0, W, 0], [-sgn * sb, 0, cb]));
+      }
+    }
+    // N and S rows (face S): the west end and base edge are placed; the modules step east from the west end.
+    function addNS(group, r) {
+      var n = r.n !== undefined ? r.n : DEFAULT_N[group];
+      var beta = r.tilt * D2R, cb = Math.cos(beta), sb = Math.sin(beta), dz = r.dz || 0;
+      var xStart = DEF_BASE[group][0] + r.dx, y = DEF_BASE[group][1] + r.dy;
+      var len = n * W + (n - 1) * r.gap, mid = xStart + len / 2;
+      for (var i = 0; i < n; i++) {
+        var xs = xStart + i * (W + r.gap);
+        var xc = xs + W / 2;
+        var dzOff = n > 1 ? dz * (xc - mid) / (len - W) : 0;
+        mods.push(mk(group, [xs, y, gz(y) + r.base + dzOff], [0, L * cb, L * sb], [W, 0, 0], [0, -sb, cb]));
+      }
+    }
+    if (rows.OL && rows.OL.on) addEW('OL', rows.OL);
+    if (rows.IL && rows.IL.on) addEW('IL', rows.IL);
+    if (rows.IR && rows.IR.on) addEW('IR', rows.IR);
+    if (rows.OR && rows.OR.on) addEW('OR', rows.OR);
+    if (rows.N && rows.N.on) addNS('N', rows.N);
+    if (rows.NI && rows.NI.on) addNS('NI', rows.NI);
+    if (rows.SI && rows.SI.on) addNS('SI', rows.SI);
+    if (rows.S && rows.S.on) addNS('S', rows.S);
+    // Top edge height: above the grade under it, and above the lowest grade on the site (y = 0).
+    mods.forEach(function (M) {
+      var topY = M.center[1] + M.U[1] / 2;
+      M.topZ = M.P00[2] + M.U[2];
+      M.topLocal = M.topZ - gz(topY);
+    });
+    var sc = {
+      mods: mods, gz: gz, slope: slope,
+      wall: { on: p.wallH > 0, x: 36.2 + p.wallDx, T: 1.0, y0: -4, y1: 48, h: p.wallH }
+    };
+    viewFactors(sc);
+    sc.gh = groundHits(sc);
+    return sc;
+  }
+
+  // Deterministic cosine-weighted directions over the hemisphere about normal nrm.
+  function hemiDirs(nrm, K) {
+    var t1 = Math.abs(nrm[2]) < 0.9 ? unit(cross(nrm, [0, 0, 1])) : [1, 0, 0];
+    var t2 = cross(nrm, t1);
+    var out = [];
+    for (var k = 0; k < K; k++) {
+      var u = (k + 0.5) / K, st = Math.sqrt(u), ct = Math.sqrt(1 - u), phi = k * 2.399963229728653;
+      var lx = st * Math.cos(phi), ly = st * Math.sin(phi);
+      out.push([lx * t1[0] + ly * t2[0] + ct * nrm[0],
+                lx * t1[1] + ly * t2[1] + ct * nrm[1],
+                lx * t1[2] + ly * t2[2] + ct * nrm[2]]);
+    }
+    return out;
+  }
+
+  // Sky view fraction for each module's front and rear faces (from geometry only).
+  function viewFactors(sc) {
+    sc.mods.forEach(function (M, m) {
+      var dF = hemiDirs(M.n, VK), dR = hemiDirs([-M.n[0], -M.n[1], -M.n[2]], VK);
+      var skyF = 0, skyR = 0, cnt = 0;
+      for (var i = 0; i < SA; i++) {
+        for (var j = 0; j < SB; j++) {
+          var a = (i + 0.5) / SA, b = (j + 0.5) / SB;
+          var P0 = [M.P00[0] + a * M.U[0] + b * M.V[0], M.P00[1] + a * M.U[1] + b * M.V[1], M.P00[2] + a * M.U[2] + b * M.V[2]];
+          var PF = [P0[0] + 0.01 * M.n[0], P0[1] + 0.01 * M.n[1], P0[2] + 0.01 * M.n[2]];
+          var PR = [P0[0] - 0.01 * M.n[0], P0[1] - 0.01 * M.n[1], P0[2] - 0.01 * M.n[2]];
+          cnt++;
+          for (var k = 0; k < VK; k++) {
+            if (dF[k][2] > 0 && !blockedScene(PF, dF[k], sc, m)) skyF++;
+            if (dR[k][2] > 0 && !blockedScene(PR, dR[k], sc, m)) skyR++;
+          }
+        }
+      }
+      var tot = cnt * VK;
+      M.svfF = skyF / tot;
+      M.svfR = skyR / tot;
+    });
+  }
+
+  // Does the ray from P toward the sun (unit vector s) hit any other module or the wall?
+  function blockedScene(P, s, sc, self) {
+    var mods = sc.mods, k, n = mods.length;
+    var px = P[0], py = P[1], pz = P[2], sx = s[0], sy = s[1], sz = s[2];
+    for (k = 0; k < n; k++) {
+      if (k === self) continue;
+      var M = mods[k], nx = M.n[0], ny = M.n[1], nz = M.n[2];
+      var d = nx * sx + ny * sy + nz * sz;
+      if (Math.abs(d) < 1e-12) continue;
+      var p0 = M.P00, t = (nx * (p0[0] - px) + ny * (p0[1] - py) + nz * (p0[2] - pz)) / d;
+      if (t <= 1e-7) continue;
+      var rx = px + t * sx - p0[0], ry = py + t * sy - p0[1], rz = pz + t * sz - p0[2];
+      var U = M.U, V = M.V;
+      var a = (rx * U[0] + ry * U[1] + rz * U[2]) / M.uu;
+      if (a < 0 || a > 1) continue;
+      var b = (rx * V[0] + ry * V[1] + rz * V[2]) / M.vv;
+      if (b >= 0 && b <= 1) return true;
+    }
+    var w = sc.wall;
+    if (w.on && Math.abs(s[0]) > 1e-12) {
+      var tw = (w.x - P[0]) / s[0];
+      if (tw > 1e-7) {
+        var y = P[1] + tw * s[1], z = P[2] + tw * s[2];
+        if (y >= w.y0 && y <= w.y1 && z >= sc.gz(y) && z <= sc.gz(y) + w.h) return true;
+      }
+    }
+    return false;
+  }
+
+  // Per module: direct-sun fraction of its front face and of its rear face.
+  function frameShade(sc, s) {
+    var out = [];
+    for (var m = 0; m < sc.mods.length; m++) {
+      var M = sc.mods[m], dn = dot(M.n, s), rec = { frac: 0, sun: false, rear: 0 };
+      var lit = 0, tot = 0, i, j, a, b, P;
+      if (dn > 1e-6) {
+        lit = 0; tot = 0;
+        for (i = 0; i < SA; i++) {
+          for (j = 0; j < SB; j++) {
+            a = (i + 0.5) / SA; b = (j + 0.5) / SB;
+            P = [M.P00[0] + a * M.U[0] + b * M.V[0] + 0.01 * M.n[0],
+                 M.P00[1] + a * M.U[1] + b * M.V[1] + 0.01 * M.n[1],
+                 M.P00[2] + a * M.U[2] + b * M.V[2] + 0.01 * M.n[2]];
+            tot++;
+            if (!blockedScene(P, s, sc, m)) lit++;
+          }
+        }
+        rec.frac = lit / tot; rec.sun = true;
+      } else if (-dn > 1e-6) {
+        lit = 0; tot = 0;
+        for (i = 0; i < SA; i++) {
+          for (j = 0; j < SB; j++) {
+            a = (i + 0.5) / SA; b = (j + 0.5) / SB;
+            P = [M.P00[0] + a * M.U[0] + b * M.V[0] - 0.01 * M.n[0],
+                 M.P00[1] + a * M.U[1] + b * M.V[1] - 0.01 * M.n[1],
+                 M.P00[2] + a * M.U[2] + b * M.V[2] - 0.01 * M.n[2]];
+            tot++;
+            if (!blockedScene(P, s, sc, m)) lit++;
+          }
+        }
+        rec.rear = lit / tot;
+      }
+      out.push(rec);
+    }
+    return out;
+  }
+
+  // Clear-sky irradiance terms at one sun position: direct normal, diffuse and global on a horizontal (W/m2), sin(altitude).
+  function skyTerms(sun) {
+    var sa = Math.sin(sun.alt), dni = dniWm2(sun.alt);
+    var f = 0.08 + 0.15 * (1 - sa);                  // clear-sky diffuse share of global horizontal
+    var ghi = dni * sa / (1 - f);
+    return { sa: sa, dni: dni, dhi: f * ghi, ghi: ghi };
+  }
+
+  // Irradiance (W/m2) on one module's front and rear faces at one sun position: [front, rear].
+  // gf and gr are the ground-reflected terms for the front and rear (albedo included); the rear total is scaled by bifaciality.
+  function faceIrr(M, sh, s, T, gf, gr, bif) {
+    var cF = dot(M.n, s), upF = Math.max(0, cF), upR = Math.max(0, -cF);
+    var front = T.dni * upF * sh.frac + T.dhi * M.svfF + gf;
+    var rear = bif * (T.dni * upR * sh.rear + T.dhi * M.svfR + gr);
+    return [front, rear];
+  }
+
+  // Ground hits: where each sample ray from a module's front or rear meets the ground, with the weight that makes
+  // the sum over hits the ground view factor. Depends only on the layout, so it is computed with the geometry.
+  var GSA = 10, GSB = 2, GVK = 16;
+  function groundHits(sc) {
+    var hx = [], hy = [], hw = [], hm = [], hs = [];
+    var wgt = 1 / (GSA * GSB * GVK);
+    sc.mods.forEach(function (M, m) {
+      [1, -1].forEach(function (side) {                          // +1 front, -1 rear
+        var dirs = hemiDirs(side > 0 ? M.n : [-M.n[0], -M.n[1], -M.n[2]], GVK);
+        for (var i = 0; i < GSA; i++) {
+          for (var j = 0; j < GSB; j++) {
+            var a = (i + 0.5) / GSA, b = (j + 0.5) / GSB;
+            var P = [M.P00[0] + a * M.U[0] + b * M.V[0] + side * 0.01 * M.n[0],
+                     M.P00[1] + a * M.U[1] + b * M.V[1] + side * 0.01 * M.n[1],
+                     M.P00[2] + a * M.U[2] + b * M.V[2] + side * 0.01 * M.n[2]];
+            for (var k = 0; k < GVK; k++) {
+              var d = dirs[k], den = sc.slope * d[1] - d[2];         // > 0 when the ray meets the sloped ground ahead
+              if (den <= 0) continue;
+              var t = (P[2] - sc.slope * P[1]) / den;
+              if (t <= 0 || blockedScene(P, d, sc, m)) continue;     // a module or the wall stops it first
+              hx.push(P[0] + t * d[0]); hy.push(P[1] + t * d[1]);
+              hw.push(wgt); hm.push(m); hs.push(side > 0 ? 0 : 1);
+            }
+          }
+        }
+      });
+    });
+    var n = hx.length, h, minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity, grid = null;
+    for (h = 0; h < n; h++) {
+      minX = Math.min(minX, hx[h]); maxX = Math.max(maxX, hx[h]);
+      minY = Math.min(minY, hy[h]); maxY = Math.max(maxY, hy[h]);
+    }
+    if (n > 0) {
+      var CS = Math.max(0.5, Math.sqrt((maxX - minX + 1) * (maxY - minY + 1) * 16 / n));
+      var nx = Math.floor((maxX - minX) / CS) + 1, ny = Math.floor((maxY - minY) / CS) + 1;
+      var cellOf = new Int32Array(n), start = new Int32Array(nx * ny + 1), order = new Int32Array(n);
+      for (h = 0; h < n; h++) {
+        cellOf[h] = Math.floor((hy[h] - minY) / CS) * nx + Math.floor((hx[h] - minX) / CS);
+        start[cellOf[h] + 1]++;
+      }
+      for (var c = 0; c < nx * ny; c++) start[c + 1] += start[c];
+      var fill = start.slice(0, nx * ny);
+      for (h = 0; h < n; h++) order[fill[cellOf[h]]++] = h;
+      grid = { minX: minX, minY: minY, CS: CS, nx: nx, ny: ny, start: start, order: order };
+    }
+    return { n: n, x: hx, y: hy, w: hw, m: hm, side: hs, grid: grid };
+  }
+
+  // Shadows on the sloped ground for one sun direction: each module and the wall projected along the sun onto the
+  // ground, as 4-point polygons in ground (x, y) with bounding boxes.
+  function shadowQuads(sc, s) {
+    var den = s[2] - sc.slope * s[1], out = [];
+    function quad(pts) {
+      var q = pts.map(function (P) {
+        var lam = (P[2] - sc.slope * P[1]) / den;
+        return [P[0] - lam * s[0], P[1] - lam * s[1]];
+      });
+      var bb = { p: q, x0: Infinity, x1: -Infinity, y0: Infinity, y1: -Infinity };
+      q.forEach(function (c) {
+        bb.x0 = Math.min(bb.x0, c[0]); bb.x1 = Math.max(bb.x1, c[0]);
+        bb.y0 = Math.min(bb.y0, c[1]); bb.y1 = Math.max(bb.y1, c[1]);
+      });
+      return bb;
+    }
+    sc.mods.forEach(function (M) { out.push(quad(M.corners)); });
+    if (sc.wall.on) {
+      var w = sc.wall;
+      out.push(quad([[w.x, w.y0, sc.gz(w.y0)], [w.x, w.y1, sc.gz(w.y1)],
+                     [w.x, w.y1, sc.gz(w.y1) + w.h], [w.x, w.y0, sc.gz(w.y0) + w.h]]));
+    }
+    return out;
+  }
+  function inQuad2(x, y, q) {
+    var sg = 0;
+    for (var i = 0; i < 4; i++) {
+      var a = q.p[i], b = q.p[(i + 1) % 4];
+      var c = (b[0] - a[0]) * (y - a[1]) - (b[1] - a[1]) * (x - a[0]);
+      if (c === 0) continue;
+      if (sg === 0) sg = c > 0 ? 1 : -1;
+      else if ((c > 0 ? 1 : -1) !== sg) return false;
+    }
+    return sg !== 0;
+  }
+  // Sunlit flags for the ground hits at one sun position (1 = direct sun reaches the hit).
+  function litHits(sc, gh, s) {
+    var lit = new Uint8Array(gh.n), den = s[2] - sc.slope * s[1];
+    if (s[2] <= 0 || den <= 0) return lit;                    // sun down, or below the sloped ground
+    lit.fill(1);
+    var g = gh.grid;
+    if (!g) return lit;
+    shadowQuads(sc, s).forEach(function (q) {
+      var i0 = Math.max(0, Math.floor((q.x0 - g.minX) / g.CS)), i1 = Math.min(g.nx - 1, Math.floor((q.x1 - g.minX) / g.CS));
+      var j0 = Math.max(0, Math.floor((q.y0 - g.minY) / g.CS)), j1 = Math.min(g.ny - 1, Math.floor((q.y1 - g.minY) / g.CS));
+      for (var j = j0; j <= j1; j++) {
+        for (var i = i0; i <= i1; i++) {
+          var c = j * g.nx + i;
+          for (var k = g.start[c]; k < g.start[c + 1]; k++) {
+            var h = g.order[k];
+            if (!lit[h]) continue;
+            var x = gh.x[h], y = gh.y[h];
+            if (x < q.x0 || x > q.x1 || y < q.y0 || y > q.y1) continue;
+            if (inQuad2(x, y, q)) lit[h] = 0;
+          }
+        }
+      }
+    });
+    return lit;
+  }
+  // Ground-reflected irradiance (W/m2, albedo included) on each module's front and rear, from the ground each face
+  // sees: every ground hit adds its global irradiance (direct where sunlit, plus sky diffuse).
+  function groundReflect(sc, gh, sun, T, alb) {
+    var lit = litHits(sc, gh, sun.s), front = [], rear = [];
+    sc.mods.forEach(function () { front.push(0); rear.push(0); });
+    for (var h = 0; h < gh.n; h++) {
+      var E = gh.w[h] * (T.dni * T.sa * lit[h] + T.dhi);
+      if (gh.side[h] === 0) front[gh.m[h]] += E; else rear[gh.m[h]] += E;
+    }
+    return { front: front.map(function (v) { return alb * v; }), rear: rear.map(function (v) { return alb * v; }) };
+  }
+
+  // Incident clear-sky energy for one day (kWh on the module area), front and rear: direct beam, sky diffuse, and
+  // ground-reflected light (albedo); the rear is scaled by bifaciality. perF and perR are the same by module.
+  // Output = incident x module efficiency x system factor (done by the page, not here). opt: albedo, bif, site.
+  function daily(sc, N, opt) {
+    var alb = (opt && isFinite(opt.albedo)) ? opt.albedo : 0.40;
+    var bif = (opt && isFinite(opt.bif)) ? opt.bif : 0.70;
+    var site = (opt && opt.site) || DEFAULT_SITE;
+    var dt = 0.25, cap = 0, rcap = 0, pot = 0, g = {}, perF = [], perR = [];
+    GROUPS.forEach(function (k) { g[k] = { e: 0, pot: 0 }; });
+    sc.mods.forEach(function () { perF.push(0); perR.push(0); });
+    for (var h = 0; h < 24; h += dt) {
+      var sun = sunPosition(N, h, site);
+      if (sun.alt <= 0) continue;
+      var T = skyTerms(sun), sh = frameShade(sc, sun.s), G = groundReflect(sc, sc.gh, sun, T, alb);
+      for (var m = 0; m < sc.mods.length; m++) {
+        var M = sc.mods[m];
+        var cosb = Math.abs(M.n[2]), dA = dt * MOD_AREA_M2;
+        var upF = Math.max(0, dot(M.n, sun.s)), upR = Math.max(0, -dot(M.n, sun.s));
+        var fr = faceIrr(M, sh[m], sun.s, T, G.front[m], G.rear[m], bif);
+        var frontP = T.dni * upF + T.dhi * (1 + cosb) / 2 + alb * T.ghi * (1 - cosb) / 2;
+        var rearP = bif * (T.dni * upR + T.dhi * (1 - cosb) / 2 + alb * T.ghi * (1 + cosb) / 2);
+        cap += (fr[0] + fr[1]) * dA; rcap += fr[1] * dA;
+        perF[m] += fr[0] * dA / 1000; perR[m] += fr[1] * dA / 1000;
+        pot += (frontP + rearP) * dA;
+        g[M.group].e += (fr[0] + fr[1]) * dA; g[M.group].pot += (frontP + rearP) * dA;
+      }
+    }
+    return { kwh: cap / 1000, rearKwh: rcap / 1000, potKwh: pot / 1000, groups: g, perF: perF, perR: perR };
+  }
+
+  return {
+    GROUPS: GROUPS, NAME: NAME, FACING: FACING, MOD_AREA_M2: MOD_AREA_M2,
+    DEFAULT_N: DEFAULT_N, DEF_BASE: DEF_BASE, DEFAULT_SITE: DEFAULT_SITE, MOD_L: MOD_L, MOD_W: MOD_W,
+    dayOfYear: dayOfYear, zoneOnDay: zoneOnDay, zoneOffsetOnDay: zoneOffsetOnDay, validZone: validZone,
+    sunPosition: sunPosition, dniWm2: dniWm2,
+    solarText: solarText, compassName: compassName,
+    buildScene: buildScene, frameShade: frameShade, skyTerms: skyTerms, faceIrr: faceIrr, daily: daily,
+    groundHits: groundHits, litHits: litHits, groundReflect: groundReflect,
+    clamp: clamp, add: add, sub: sub, dot: dot, cross: cross, unit: unit
+  };
+})();
+
+if (typeof document !== 'undefined') {
+(function () {
+  var C = CORE;
+  function $(id) { return document.getElementById(id); }
+  var cam = { az: 135, el: 32, zoom: 1 };
+  var STRIP_CAM = { az: 135, el: 34, zoom: 1 };
+  var TIMES = [9.0, 10.5, 12.0, 13.5, 15.0];
+  var MDAYS = [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
+  var MNAMES = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+  var geo = null, dayC = null;
+
+  var ROWS = [
+    { g: 'OL', label: 'Outer row, faces W', ns: false },
+    { g: 'IL', label: 'Inner row, faces W', ns: false },
+    { g: 'IR', label: 'Inner row, faces E', ns: false },
+    { g: 'OR', label: 'Outer row, faces E', ns: false },
+    { g: 'N', label: 'North row, faces S', ns: true },
+    { g: 'NI', label: 'Inner north row, faces S (extra)', ns: true },
+    { g: 'SI', label: 'Inner south row, faces S (extra)', ns: true },
+    { g: 'S', label: 'South row, faces S', ns: true }
+  ];
+  // Slider ranges. Gap is in inches; right and up are from the origin 0,0 on graph paper; move shifts all rows.
+  var KNOB_RANGES = {
+    base: { min: 0, max: 15, step: 0.1 },
+    tilt: { min: -90, max: 90, step: 1 },
+    dz: { min: 0, max: 10, step: 0.1 },
+    gap: { min: 0, max: 24, step: 0.1 },
+    pos: { min: 0, max: 50, step: 0.1 },
+    move: { min: -10, max: 10, step: 0.1 }
+  };
+  function round3(x) { return Math.round(x * 1000) / 1000; }
+  // Default settings for one row. Gaps are the as-drawn spacing in inches. right and up are the baseline location.
+  var GAP_IN = { OL: 10.068, IL: 13.772, IR: 13.772, OR: 10.068, N: 8.327, NI: 8.327, SI: 8.327, S: 8.327 };
+  function defRow(g, base, on) {
+    var b = C.DEF_BASE[g];
+    return { on: on, n: C.DEFAULT_N[g], base: base, tilt: 45, dz: 0, gap: GAP_IN[g], right: b[0], up: b[1] };
+  }
+  // Original: all rows as drawn. Alternative: inner rows 2 ft higher, north row with them; the extra inner north and
+  // south rows are off.
+  var DEF_O = {
+    OL: defRow('OL', 3, true), IL: defRow('IL', 3, true), IR: defRow('IR', 3, true), OR: defRow('OR', 3, true),
+    N: defRow('N', 3, true), NI: defRow('NI', 3, false), SI: defRow('SI', 3, false), S: defRow('S', 3, true)
+  };
+  var DEF_A = {
+    OL: defRow('OL', 3, true), IL: defRow('IL', 5, true), IR: defRow('IR', 5, true), OR: defRow('OR', 3, true),
+    N: defRow('N', 5, true), NI: defRow('NI', 5, false), SI: defRow('SI', 5, false), S: defRow('S', 3, true)
+  };
+
+  // Site inputs, and the text each one starts with. The location starts at the core's default site.
+  var SITE_FIELDS = ['rise', 'wallh', 'walldx', 'alb', 'bif', 'rating', 'sf', 'cap', 'meas',
+                     'latitude', 'longitude', 'timeZone'];
+  var SITE_DEFAULTS = {
+    rise: '5', wallh: '3', walldx: '1.3', alb: '0.40', bif: '0.70', rating: '500', sf: '0.85', cap: '10', meas: 'local',
+    latitude: String(C.DEFAULT_SITE.lat), longitude: String(C.DEFAULT_SITE.lon), timeZone: C.DEFAULT_SITE.timeZone
+  };
+
+  // A numeric field with a slider above it; the slider mirrors the number box.
+  function knobCell(id, value, rng) {
+    return '<div class="kc"><input type="range" class="kr" id="' + id + '_sl" data-target="' + id + '" min="' + rng.min +
+      '" max="' + rng.max + '" step="' + rng.step + '"><input type="number" step="' + rng.step + '" id="' + id +
+      '" value="' + value + '"></div>';
+  }
+  function copyFromSlider(s) {
+    var n = document.getElementById(s.getAttribute('data-target'));
+    if (n) n.value = s.value;
+  }
+  function syncSliderFor(n) {
+    var s = document.getElementById(n.id + '_sl'), v = parseFloat(n.value);
+    if (s && isFinite(v)) s.value = String(C.clamp(v, +s.min, +s.max));
+  }
+  function syncAllSliders() {
+    var list = document.querySelectorAll('input.kr');
+    for (var i = 0; i < list.length; i++) {
+      var n = document.getElementById(list[i].getAttribute('data-target')), v = n ? parseFloat(n.value) : NaN;
+      if (isFinite(v)) list[i].value = String(C.clamp(v, +list[i].min, +list[i].max));
+    }
+  }
+  function buildKnobs(prefix, defs) {
+    var h = '<table class="knobs"><tr><th>Row</th><th>On</th><th>Panels</th><th>Base, ft (0 to 15)</th><th>Tilt, degrees (-90 to 90)</th>' +
+            '<th>N and S: height difference, ft (0 to 10)</th><th>Gap between modules, in (0 to 24)</th>' +
+            '<th>Right (east) from 0,0, ft (0 to 50)</th><th>Up (north) from 0,0, ft (0 to 50)</th></tr>' +
+            '<tr><td>All rows, move together: right (+E) and up (+N), ft (-10 to 10)</td>' +
+            '<td></td><td></td><td></td><td></td><td></td><td></td>' +
+            '<td>' + knobCell(prefix + 'all_dx', 0, KNOB_RANGES.move) + '</td>' +
+            '<td>' + knobCell(prefix + 'all_dy', 0, KNOB_RANGES.move) + '</td></tr>';
+    ROWS.forEach(function (r) {
+      var d = defs[r.g];
+      h += '<tr><td>' + r.label + '</td>' +
+        '<td><input type="checkbox" id="' + prefix + r.g + '_on"' + (d.on ? ' checked' : '') + '></td>' +
+        '<td><input type="number" min="0" step="1" id="' + prefix + r.g + '_n" value="' + d.n + '"></td>' +
+        '<td>' + knobCell(prefix + r.g + '_base', d.base, KNOB_RANGES.base) + '</td>' +
+        '<td>' + knobCell(prefix + r.g + '_tilt', d.tilt, KNOB_RANGES.tilt) + '</td>' +
+        '<td>' + (r.ns ? knobCell(prefix + r.g + '_dz', d.dz, KNOB_RANGES.dz) : '—') + '</td>' +
+        '<td>' + knobCell(prefix + r.g + '_gap', d.gap, KNOB_RANGES.gap) + '</td>' +
+        '<td>' + knobCell(prefix + r.g + '_right', d.right, KNOB_RANGES.pos) + '</td>' +
+        '<td>' + knobCell(prefix + r.g + '_up', d.up, KNOB_RANGES.pos) + '</td></tr>';
+    });
+    return '<div class="tw">' + h + '</table></div>';
+  }
+
+  function num(id, def) {
+    var v = parseFloat($(id).value);
+    return isFinite(v) ? v : def;
+  }
+  // Rows for the geometry, relative to the baseline locations: dx east, dy north (ft). Gap is converted to feet.
+  // The all-rows move (right and up) is added to every row.
+  function readRows(prefix) {
+    var ax = num(prefix + 'all_dx', 0), ay = num(prefix + 'all_dy', 0);
+    var rows = {};
+    ROWS.forEach(function (r) {
+      var b = C.DEF_BASE[r.g];
+      rows[r.g] = {
+        on: $(prefix + r.g + '_on').checked,
+        n: Math.max(0, Math.round(num(prefix + r.g + '_n', C.DEFAULT_N[r.g]))),
+        base: num(prefix + r.g + '_base', 3),
+        tilt: num(prefix + r.g + '_tilt', 45),
+        dz: r.ns ? num(prefix + r.g + '_dz', 0) : 0,
+        gap: num(prefix + r.g + '_gap', 0) / 12,   // the box is in inches; the layout is in feet
+        dx: num(prefix + r.g + '_right', b[0]) - b[0] + ax,
+        dy: num(prefix + r.g + '_up', b[1]) - b[1] + ay
+      };
+    });
+    return rows;
+  }
+  // The location for the sun and the clock: latitude kept short of the poles, and a time zone the browser knows
+  // (the default zone when the box holds something else).
+  function siteParams() {
+    var d = C.DEFAULT_SITE;
+    return {
+      lat: C.clamp(num('latitude', d.lat), -89.5, 89.5),
+      lon: C.clamp(num('longitude', d.lon), -180, 180),
+      timeZone: C.validZone($('timeZone').value) || d.timeZone
+    };
+  }
+  function params() {
+    return {
+      siteRise: num('rise', 0),
+      wallH: num('wallh', 0),
+      wallDx: num('walldx', 0),
+      rowsO: readRows('o_'),
+      rowsA: readRows('a_'),
+      albedo: num('alb', 0.4),
+      bif: num('bif', 0.7),
+      rating: num('rating', 500),
+      sf: num('sf', 0.85),
+      cap: num('cap', 10),
+      meas: $('meas').value,
+      site: siteParams()
+    };
+  }
+  function dateInfo() {
+    var N = parseInt($('day').value, 10) || 355, m = 0, d = N;
+    while (m < 11 && d > MDAYS[m]) { d -= MDAYS[m]; m++; }
+    return { N: N, month: m + 1, day: d, label: MNAMES[m] + ' ' + d };
+  }
+  // Local clock time in the site's time zone on that day, e.g. "9:00 am PST" (daylight time shows as PDT).
+  function fmtClock(clock, N, site) {
+    var h = Math.floor(clock), m = Math.round((clock - h) * 60);
+    if (m === 60) { h += 1; m = 0; }
+    var hd = ((h % 24) + 24) % 24, h12 = hd % 12 === 0 ? 12 : hd % 12, name = C.zoneOnDay(site.timeZone, N).name;
+    return h12 + ':' + (m < 10 ? '0' : '') + m + ' ' + (hd < 12 ? 'am' : 'pm') + (name ? ' ' + name : '');
+  }
+  // Clock time minus apparent solar time on a day, in hours; and the solar hour for a clock time.
+  function clockShift(N, site) { return C.sunPosition(N, 12, site).clock - 12; }
+  function solarFromClock(N, clock, site) { return clock - clockShift(N, site); }
+
+  function geometry(prm) {
+    var key = JSON.stringify([prm.siteRise, prm.wallH, prm.wallDx, prm.rowsO, prm.rowsA]);
+    if (!geo || geo.key !== key) {
+      var base = { siteRise: prm.siteRise, wallH: prm.wallH, wallDx: prm.wallDx };
+      geo = { key: key, sc: { original: C.buildScene(base, prm.rowsO), alternative: C.buildScene(base, prm.rowsA) } };
+    }
+    return geo.sc;
+  }
+
+  // Output factors. Power: W per W/m2 of irradiance on one module = rating/1000 x system factor.
+  // Energy: kWh per incident kWh = rating / (1000 x module area) x system factor (module efficiency x system factor).
+  function pFactor(prm) { return prm.rating / 1000 * prm.sf; }
+  function eFactor(prm) { return prm.rating / (1000 * C.MOD_AREA_M2) * prm.sf; }
+
+  // Output at one instant, per module (W): front and rear, and the array total. sh is null when the sun is down.
+  function nowOutput(sc, sun, sh, prm) {
+    var T = sun.alt > 0 ? C.skyTerms(sun) : null, pf = pFactor(prm);
+    var G = T ? C.groundReflect(sc, sc.gh, sun, T, prm.albedo) : null;
+    var front = [], rear = [], sum = 0;
+    sc.mods.forEach(function (M, m) {
+      var fr = (T && sh) ? C.faceIrr(M, sh[m], sun.s, T, G.front[m], G.rear[m], prm.bif) : [0, 0];
+      front.push(fr[0] * pf); rear.push(fr[1] * pf); sum += (fr[0] + fr[1]) * pf;
+    });
+    return { front: front, rear: rear, sumW: sum };
+  }
+  // Hover data for one canvas: output at this instant per module, and the day's output per module when known.
+  function hoverData(out, en, prm, label) {
+    var ef = eFactor(prm);
+    return {
+      front: out.front, rear: out.rear, label: label,
+      dayF: en ? en.perF.map(function (x) { return x * ef; }) : null,
+      dayR: en ? en.perR.map(function (x) { return x * ef; }) : null
+    };
+  }
+  function totalText(out, en, prm, label) {
+    var now = 'Est. output now ' + (out.sumW / 1000).toFixed(2) + ' kW';
+    return en ? now + ' · ' + label + ' total ' + (en.kwh * eFactor(prm)).toFixed(1) + ' kWh'
+              : now + ' · day total updates on release';
+  }
+  // The day computation for these inputs, if it is current; null otherwise (used while dragging the day slider).
+  function freshDay(prm, N) {
+    return dayC && dayC.key === JSON.stringify([prm, N]) ? dayC : null;
+  }
+  function dayData(prm, N, sc) {
+    var key = JSON.stringify([prm, N]);
+    if (!dayC || dayC.key !== key) {
+      dayC = {
+        key: key,
+        en: { original: C.daily(sc.original, N, prm), alternative: C.daily(sc.alternative, N, prm) },
+        strip: TIMES.map(function (h) {
+          var sun = C.sunPosition(N, h, prm.site);
+          var shO = sun.alt > 0 ? C.frameShade(sc.original, sun.s) : null;
+          var shA = sun.alt > 0 ? C.frameShade(sc.alternative, sun.s) : null;
+          return { h: h, sun: sun, shO: shO, shA: shA,
+                   outO: nowOutput(sc.original, sun, shO, prm), outA: nowOutput(sc.alternative, sun, shA, prm) };
+        })
+      };
+    }
+    return dayC;
+  }
+
+  function pct(x) { return isFinite(x) ? Math.round(x * 100) + '%' : '—'; }
+
+  function capStats(sc, cap, meas) {
+    var maxL = 0, maxZ = 0, over = 0;
+    sc.mods.forEach(function (M) {
+      if (M.topLocal > maxL) maxL = M.topLocal;
+      if (M.topZ > maxZ) maxZ = M.topZ;
+      var v = meas === 'lowest' ? M.topZ : M.topLocal;
+      if (v > cap + 1e-6) over++;
+    });
+    return { maxL: maxL, maxZ: maxZ, over: over };
+  }
+
+  function drawScene(canvas, sc, sun, shade, camv, info) {
+    var ctx = canvas.getContext('2d'), W = canvas.width, H = canvas.height;
+    var V = makeView(camv, W, H), gz = sc.gz, slope = sc.slope;
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    ctx.fillStyle = '#ffffff'; ctx.fillRect(0, 0, W, H);
+    var ground = [[-10, -12], [60, -12], [60, 60], [-10, 60]].map(function (q) {
+      return V.P([q[0], q[1], gz(q[1])]);
+    });
+    fillPoly(ctx, ground, '#e9e0c9', null, 0);
+    if (sun.alt > 0) {
+      var shapes = sc.mods.map(function (M) { return M.corners; });
+      if (sc.wall.on) {
+        var w0 = sc.wall;
+        shapes.push([[w0.x, w0.y0, gz(w0.y0)], [w0.x, w0.y1, gz(w0.y1)],
+                     [w0.x, w0.y1, gz(w0.y1) + w0.h], [w0.x, w0.y0, gz(w0.y0) + w0.h]]);
+      }
+      ctx.beginPath();
+      shapes.forEach(function (sh) {
+        sh.map(function (q) { return groundPoint(q, sun.s, slope); }).map(V.P).forEach(function (p, i) {
+          if (i === 0) ctx.moveTo(p[0], p[1]); else ctx.lineTo(p[0], p[1]);
+        });
+        ctx.closePath();
+      });
+      ctx.fillStyle = 'rgba(25,31,43,0.28)'; ctx.fill();
+    }
+    var objs = [];
+    sc.mods.forEach(function (M, idx) {
+      var pts = M.corners.map(function (q) { return V.P(q); });
+      var depth = (pts[0][2] + pts[1][2] + pts[2][2] + pts[3][2]) / 4;
+      var front = C.dot(M.n, C.sub(V.Cam, M.center)) > 0;
+      var fill, stroke = 'rgba(0,0,0,0.35)', lw = 0.8;
+      if (!front) { fill = '#d9dee6'; stroke = 'rgba(55,65,80,0.7)'; }
+      else if (!shade || !shade[idx].sun) { fill = '#7b818a'; }
+      else { fill = mix(shade[idx].frac); }
+      var topv = info.meas === 'lowest' ? M.topZ : M.topLocal;
+      if (topv > info.cap + 1e-6) { stroke = '#d62828'; lw = 2.2; }
+      objs.push({ pts: pts, depth: depth, fill: fill, stroke: stroke, lw: lw, idx: idx });
+    });
+    if (sc.wall.on) {
+      var w = sc.wall;
+      var faces = [
+        { q: [[w.x, w.y0, gz(w.y0)], [w.x, w.y1, gz(w.y1)], [w.x, w.y1, gz(w.y1) + w.h], [w.x, w.y0, gz(w.y0) + w.h]], n: [-1, 0, 0], fill: '#b4ad9f' },
+        { q: [[w.x + w.T, w.y0, gz(w.y0)], [w.x + w.T, w.y1, gz(w.y1)], [w.x + w.T, w.y1, gz(w.y1) + w.h], [w.x + w.T, w.y0, gz(w.y0) + w.h]], n: [1, 0, 0], fill: '#8f887a' },
+        { q: [[w.x, w.y0, gz(w.y0) + w.h], [w.x, w.y1, gz(w.y1) + w.h], [w.x + w.T, w.y1, gz(w.y1) + w.h], [w.x + w.T, w.y0, gz(w.y0) + w.h]], n: [0, 0, 1], fill: '#d3cdc0' }
+      ];
+      faces.forEach(function (Fc) {
+        var c = [0, 0, 0];
+        Fc.q.forEach(function (q) { c = C.add(c, q); });
+        c = [c[0] / 4, c[1] / 4, c[2] / 4];
+        if (C.dot(Fc.n, C.sub(V.Cam, c)) <= 0) return;
+        var pts = Fc.q.map(function (q) { return V.P(q); });
+        objs.push({ pts: pts, depth: (pts[0][2] + pts[1][2] + pts[2][2] + pts[3][2]) / 4,
+                    fill: Fc.fill, stroke: 'rgba(60,55,45,0.6)', lw: 0.8 });
+      });
+    }
+    objs.sort(function (a, b) { return b.depth - a.depth; });
+    objs.forEach(function (o) { fillPoly(ctx, o.pts, o.fill, o.stroke, o.lw); });
+    // Hit-test data for hover: module quads in canvas pixels, with depth; and the output shown on hover.
+    canvas._hits = objs.filter(function (o) { return o.idx !== undefined; })
+                       .map(function (o) { return { idx: o.idx, pts: o.pts, z: o.depth }; });
+    canvas._hv = info.hv || null;
+
+    // north arrow
+    var o0 = V.P([22, 22, gz(22)]), o1 = V.P([22, 40, gz(40)]);
+    var dx = o1[0] - o0[0], dy = o1[1] - o0[1], dl = Math.sqrt(dx * dx + dy * dy) || 1;
+    var bx = 34, by = H - 34;
+    ctx.strokeStyle = '#1d2430'; ctx.fillStyle = '#1d2430'; ctx.lineWidth = 1.5;
+    ctx.beginPath(); ctx.moveTo(bx, by); ctx.lineTo(bx + dx / dl * 22, by + dy / dl * 22); ctx.stroke();
+    ctx.font = '600 12px system-ui'; ctx.textAlign = 'center';
+    ctx.fillText('N', bx + dx / dl * 31, by + dy / dl * 31 + 4);
+
+    ctx.textAlign = 'left'; ctx.fillStyle = '#1d2430'; ctx.font = '600 13px system-ui';
+    ctx.fillText(info.title, 10, 18);
+    ctx.font = '12px system-ui'; ctx.fillStyle = '#4b5563';
+    ctx.fillText(info.sub, 10, 34);
+    if (info.total) { ctx.font = '600 14px system-ui'; ctx.fillStyle = '#1d2430'; ctx.fillText(info.total, 10, 50); }
+    if (info.count) { ctx.textAlign = 'right'; ctx.font = '12px system-ui'; ctx.fillStyle = '#4b5563'; ctx.fillText(info.count, W - 10, H - 10); }
+    ctx.textAlign = 'left';
+  }
+
+  function makeView(camv, W, H) {
+    var az = camv.az * Math.PI / 180;
+    var el = C.clamp(camv.el, 3, 84) * Math.PI / 180;
+    var d = [Math.sin(az) * Math.cos(el), Math.cos(az) * Math.cos(el), Math.sin(el)];   // target -> camera
+    var f = [-d[0], -d[1], -d[2]];
+    var r = C.unit(C.cross(f, [0, 0, 1]));
+    var up = C.cross(r, f);
+    var dist = 240, T = [16, 22, 3];
+    var Cam = [T[0] + dist * d[0], T[1] + dist * d[1], T[2] + dist * d[2]];
+    var F = dist * Math.min(W, H) * camv.zoom / (2.2 * 48);
+    return {
+      Cam: Cam,
+      P: function (p) {
+        var v = C.sub(p, Cam), zc = C.dot(v, f);
+        return [W / 2 + F * C.dot(v, r) / zc, H / 2 - F * C.dot(v, up) / zc, zc];
+      }
+    };
+  }
+
+  function fillPoly(ctx, pts, fill, stroke, lw) {
+    ctx.beginPath();
+    pts.forEach(function (p, i) { if (i === 0) ctx.moveTo(p[0], p[1]); else ctx.lineTo(p[0], p[1]); });
+    ctx.closePath();
+    if (fill) { ctx.fillStyle = fill; ctx.fill(); }
+    if (stroke) { ctx.strokeStyle = stroke; ctx.lineWidth = lw || 0.8; ctx.stroke(); }
+  }
+  function mix(f) {
+    var a = [58, 70, 87], b = [240, 192, 64];
+    return 'rgb(' + Math.round(a[0] + (b[0] - a[0]) * f) + ',' +
+      Math.round(a[1] + (b[1] - a[1]) * f) + ',' + Math.round(a[2] + (b[2] - a[2]) * f) + ')';
+  }
+  function groundPoint(P, s, slope) {
+    var t = (P[2] - slope * P[1]) / (s[2] - slope * s[1]);
+    var x = P[0] - t * s[0], y = P[1] - t * s[1];
+    return [x, y, slope * y];
+  }
+
+  // Is point p inside the convex quad q (4 points, in order)?
+  function inQuad(p, q) {
+    var s = 0;
+    for (var i = 0; i < 4; i++) {
+      var a = q[i], b = q[(i + 1) % 4];
+      var c = (b[0] - a[0]) * (p[1] - a[1]) - (b[1] - a[1]) * (p[0] - a[0]);
+      if (c === 0) continue;
+      if (s === 0) s = c > 0 ? 1 : -1;
+      else if ((c > 0 ? 1 : -1) !== s) return false;
+    }
+    return s !== 0;
+  }
+  function hideTip() { $('tip').style.display = 'none'; }
+  function showTip(canvas, e) {
+    var hv = canvas._hv, hits = canvas._hits || [];
+    var r = canvas.getBoundingClientRect();
+    var p = [(e.clientX - r.left) * canvas.width / r.width, (e.clientY - r.top) * canvas.height / r.height];
+    var best = null;
+    hits.forEach(function (h) { if (inQuad(p, h.pts) && (!best || h.z < best.z)) best = h; });
+    if (!best || !hv) { hideTip(); return; }
+    var i = best.idx, when = hv.label ? ' · ' + hv.label : '';
+    var front = Math.round(hv.front[i]) + ' W now' + (hv.dayF ? ' · ' + hv.dayF[i].toFixed(2) + ' kWh' + when : '');
+    var back = Math.round(hv.rear[i]) + ' W now' + (hv.dayR ? ' · ' + hv.dayR[i].toFixed(2) + ' kWh' + when : '');
+    var t = $('tip');
+    t.innerHTML = 'Front: ' + front + '<br>Back: ' + back;
+    t.style.display = 'block';
+    var vw = (document.documentElement && document.documentElement.clientWidth) || 1e9;
+    t.style.left = Math.max(4, Math.min(e.clientX + 14, vw - t.offsetWidth - 8)) + 'px';
+    t.style.top = (e.clientY + 14) + 'px';
+  }
+
+  function groupNow(sc, sh, g) {
+    var n = 0, sunN = 0, acc = 0;
+    sc.mods.forEach(function (M, i) {
+      if (M.group !== g) return;
+      n++;
+      if (sh && sh[i].sun) { sunN++; acc += sh[i].frac; }
+    });
+    if (n === 0) return '—';
+    if (!sh) return 'sun below horizon';
+    if (sunN === 0) return 'no direct sun on this face';
+    return pct(acc / sunN) + ' sunlit';
+  }
+  function groupDay(en, g) {
+    var x = en.groups[g];
+    return x.pot > 0 ? pct(x.e / x.pot) : '—';
+  }
+
+  // Summary values for the selected day: the numbers the summary table shows, kept as numbers.
+  function summaryValues(sc, en, D, prm) {
+    var eo = en.original, ea = en.alternative, ef = eFactor(prm);
+    var so = capStats(sc.original, prm.cap, prm.meas), sa = capStats(sc.alternative, prm.cap, prm.meas);
+    return {
+      day: { label: D.label, N: D.N },
+      modules: { original: sc.original.mods.length, alternative: sc.alternative.mods.length },
+      potentialKwh: { original: eo.potKwh * ef, alternative: ea.potKwh * ef },
+      outputKwh: { original: eo.kwh * ef, alternative: ea.kwh * ef },
+      rearPct: { original: eo.rearKwh / eo.kwh, alternative: ea.rearKwh / ea.kwh },
+      outputPctOfOriginalPotential: { original: eo.kwh / eo.potKwh, alternative: ea.kwh / eo.potKwh },
+      ownPotentialPct: { original: eo.kwh / eo.potKwh, alternative: ea.kwh / ea.potKwh },
+      maxTopLocalFt: { original: so.maxL, alternative: sa.maxL },
+      maxTopLowestFt: { original: so.maxZ, alternative: sa.maxZ },
+      modulesOverCap: { original: so.over, alternative: sa.over }
+    };
+  }
+  function renderSummary(sc, en, D, prm) {
+    var v = summaryValues(sc, en, D, prm);
+    var measLabel = prm.meas === 'lowest' ? 'lowest grade on site' : 'grade under each row';
+    var rows = [
+      ['Modules', v.modules.original, v.modules.alternative],
+      ['Day: unobstructed output, kWh (front + rear, clear sky)', v.potentialKwh.original.toFixed(1), v.potentialKwh.alternative.toFixed(1)],
+      ['Day: estimated output, kWh (front + rear)', v.outputKwh.original.toFixed(1), v.outputKwh.alternative.toFixed(1)],
+      ['Day: rear side, % of output', pct(v.rearPct.original), pct(v.rearPct.alternative)],
+      ['Day: output, % of original unobstructed potential', pct(v.outputPctOfOriginalPotential.original), pct(v.outputPctOfOriginalPotential.alternative)],
+      ['Day: output, % of its own unobstructed potential', pct(v.ownPotentialPct.original), pct(v.ownPotentialPct.alternative)],
+      ['Highest top above grade under it, ft', v.maxTopLocalFt.original.toFixed(1), v.maxTopLocalFt.alternative.toFixed(1)],
+      ['Highest top above lowest grade on site, ft', v.maxTopLowestFt.original.toFixed(1), v.maxTopLowestFt.alternative.toFixed(1)],
+      ['Modules over the ' + prm.cap + ' ft cap (measured from ' + measLabel + ')', v.modulesOverCap.original, v.modulesOverCap.alternative]
+    ];
+    var h = '<tr><th>' + D.label + ' summary</th><th>Original</th><th>Alternative</th></tr>';
+    rows.forEach(function (r) { h += '<tr><td>' + r[0] + '</td><td>' + r[1] + '</td><td>' + r[2] + '</td></tr>'; });
+    $('sum').innerHTML = h;
+  }
+
+  function renderGroups(sc, en, shO, shA) {
+    var h = '<tr><th>Row</th><th>Original: modules</th><th>Original: sunlit now</th><th>Original: day</th>' +
+            '<th>Alternative: modules</th><th>Alternative: sunlit now</th><th>Alternative: day</th></tr>';
+    C.GROUPS.forEach(function (g) {
+      var no = sc.original.mods.filter(function (M) { return M.group === g; }).length;
+      var na = sc.alternative.mods.filter(function (M) { return M.group === g; }).length;
+      h += '<tr><td>' + C.NAME[g] + '</td><td>' + (no || '—') + '</td><td>' + groupNow(sc.original, shO, g) +
+           '</td><td>' + groupDay(en.original, g) + '</td><td>' + (na || '—') + '</td><td>' +
+           groupNow(sc.alternative, shA, g) + '</td><td>' + groupDay(en.alternative, g) + '</td></tr>';
+    });
+    $('grp').innerHTML = h;
+  }
+
+  // Output by month and for the year: one day per month (the 15th) scaled by the days in that month. Computed one
+  // scene of one month per step, so the page stays responsive; a newer change cancels the steps still pending.
+  var yearC = null, yearId = 0;
+  function yearKey(prm) {
+    return JSON.stringify([prm.siteRise, prm.wallH, prm.wallDx, prm.rowsO, prm.rowsA, prm.albedo, prm.bif, prm.rating, prm.sf, prm.site]);
+  }
+  function fmtK(x) { return String(Math.round(x)).replace(/\B(?=(\d{3})+(?!\d))/g, ','); }
+  function sumArr(a) { return a.reduce(function (x, y) { return x + y; }, 0); }
+  function renderYear(st) {
+    var h = '';
+    for (var m = 0; m < 12; m++) {
+      var o = st.original[m], a = st.alternative[m];
+      var centre = (C.dayOfYear(m + 1, 1) - 1 + MDAYS[m] / 2) / 365 * 100;
+      h += '<span class="mt" style="left:' + centre.toFixed(2) + '%"><b>' + MNAMES[m] + '</b>' +
+           '<i class="mo">' + (o == null ? '…' : fmtK(o)) + '</i><i class="mp">' + (a == null ? '…' : fmtK(a)) + '</i></span>';
+    }
+    $('mticks').innerHTML = h;
+    var all = st.done;
+    $('yearLabel').innerHTML = 'Year, kWh: <span class="mo">original ' + (all ? fmtK(sumArr(st.original)) : '…') +
+      '</span> · <span class="mp">alternative ' + (all ? fmtK(sumArr(st.alternative)) : '…') + '</span>';
+  }
+  function requestYear(prm, sc) {
+    var key = yearKey(prm);
+    if (yearC && yearC.key === key) { renderYear(yearC); return; }
+    var st = { key: key, original: [], alternative: [], done: false };
+    yearC = st;
+    var id = ++yearId, step = 0, ef = eFactor(prm);
+    renderYear(st);
+    function next() {
+      if (id !== yearId) return;                                   // superseded by a newer change
+      var m = Math.floor(step / 2), N = C.dayOfYear(m + 1, 15), days = MDAYS[m];
+      if (step % 2 === 0) st.original.push(C.daily(sc.original, N, prm).kwh * ef * days);
+      else st.alternative.push(C.daily(sc.alternative, N, prm).kwh * ef * days);
+      step++;
+      if (step < 24) setTimeout(next, 0); else st.done = true;
+      renderYear(st);
+      if (st.done && loadedScenario) renderComparison();
+    }
+    setTimeout(next, 0);
+  }
+
+  // ---- Scenarios: save the parameters and summary results as a .js file, load them back, and compare with now.
+  var loadedScenario = null;
+  var ROW_FIELDS = ['n', 'base', 'tilt', 'gap', 'right', 'up'];
+  var SIDES = [['original', 'o_'], ['alternative', 'a_']];
+  function scenarioInputs() {
+    var site = {}, view = { day: $('day').value, time: $('time').value }, out = { site: site, view: view };
+    SITE_FIELDS.forEach(function (id) { site[id] = $(id).value; });
+    SIDES.forEach(function (side) {
+      var pre = side[1], s = { allRight: $(pre + 'all_dx').value, allUp: $(pre + 'all_dy').value, rows: {} };
+      ROWS.forEach(function (r) {
+        var rr = { on: $(pre + r.g + '_on').checked };
+        ROW_FIELDS.forEach(function (f) { rr[f] = $(pre + r.g + '_' + f).value; });
+        if (r.ns) rr.dz = $(pre + r.g + '_dz').value;
+        s.rows[r.g] = rr;
+      });
+      out[side[0]] = s;
+    });
+    return out;
+  }
+  function applyScenarioInputs(inp) {
+    function setv(id, v) { var el = $(id); if (el && v !== undefined && v !== null) el.value = String(v); }
+    Object.keys(inp.site || {}).forEach(function (k) { if (SITE_FIELDS.indexOf(k) >= 0) setv(k, inp.site[k]); });
+    Object.keys(inp.view || {}).forEach(function (k) { if (k === 'day' || k === 'time') setv(k, inp.view[k]); });
+    SIDES.forEach(function (side) {
+      var pre = side[1], s = inp[side[0]];
+      if (!s) return;
+      setv(pre + 'all_dx', s.allRight); setv(pre + 'all_dy', s.allUp);
+      ROWS.forEach(function (r) {
+        var rr = (s.rows || {})[r.g];
+        if (!rr) return;
+        var on = $(pre + r.g + '_on');
+        if (on && rr.on !== undefined) on.checked = !!rr.on;
+        ROW_FIELDS.forEach(function (f) { setv(pre + r.g + '_' + f, rr[f]); });
+        if (r.ns) setv(pre + r.g + '_dz', rr.dz);
+      });
+    });
+  }
+  // Numbers rounded for the file (NaN becomes null).
+  function roundDeep(x) {
+    if (typeof x === 'number') return isFinite(x) ? Math.round(x * 1e4) / 1e4 : null;
+    if (Array.isArray(x)) return x.map(roundDeep);
+    if (x && typeof x === 'object') { var o = {}; Object.keys(x).forEach(function (k) { o[k] = roundDeep(x[k]); }); return o; }
+    return x;
+  }
+  // Summary and year results: version 4 and earlier wrote "orig" and "prop"; version 5 writes "original" and "alternative".
+  function renameResults(res) {
+    function side(x) {
+      if (!x || typeof x !== 'object' || Array.isArray(x) || (!('orig' in x) && !('prop' in x))) return x;
+      return { original: x.orig, alternative: x.prop };
+    }
+    var summary = {}, src = res.summary || {};
+    Object.keys(src).forEach(function (k) { summary[k] = side(src[k]); });
+    var year = null;
+    if (res.year) {
+      year = { original: res.year.orig, alternative: res.year.prop,
+               totalOriginal: res.year.totalOrig, totalAlternative: res.year.totalProp };
+    }
+    return { summary: summary, year: year };
+  }
+  // Brings a scenario saved by an earlier version up to version 6. Version 2 stored gaps in inches; version 1 in feet.
+  // Positions became right and up from 0,0 in version 4: version 1 and 2 were shifts from the baseline (north positive),
+  // and version 3 measured each row's top-left corner from the top-left of the old layout, downward.
+  // Version 4 and earlier called the second side "proposed" and the all-rows move allDx and allDy.
+  // A file with no location (or any other site field) takes the default, so loading never keeps the last file's values.
+  // Version 5 files kept a UTC offset and daylight days. The Loomis settings map to its zone, other whole-hour offsets to
+  // a fixed Etc zone (no daylight time), and anything else to UTC.
+  function legacyZone(off, s, e) {
+    if (off === -8 && s === 67 && e === 305) return 'America/Los_Angeles';
+    if (off === Math.round(off) && Math.abs(off) <= 14) return off === 0 ? 'Etc/UTC' : 'Etc/GMT' + (off < 0 ? '+' : '-') + Math.abs(off);
+    return 'Etc/UTC';
+  }
+  function upgradeScenario(obj) {
+    var v = obj.version || 1, inp = obj.inputs || {};
+    var L = C.MOD_L, W = C.MOD_W;
+    var TOP = [0.5, 42 + Math.cos(45 * Math.PI / 180) * L];   // top-left of the version 3 layout
+    if (inp.proposed !== undefined) {
+      if (inp.alternative === undefined) inp.alternative = inp.proposed;
+      delete inp.proposed;
+    }
+    if (v < 4) {
+      SIDES.forEach(function (side) {
+        var s = inp[side[0]], defs = side[0] === 'original' ? DEF_O : DEF_A;
+        if (!s) return;
+        s.rows = s.rows || {};
+        ROWS.forEach(function (r) {
+          var rr = s.rows[r.g];
+          if (!rr) {
+            var d = defs[r.g];
+            s.rows[r.g] = { on: d.on, n: String(d.n), base: String(d.base), tilt: String(d.tilt), dz: String(d.dz),
+                            gap: String(d.gap), right: String(d.right), up: String(d.up) };
+            return;
+          }
+          if (v < 2 && rr.gap !== undefined) rr.gap = String(parseFloat(rr.gap) * 12);
+          if (rr.n === undefined) rr.n = String(C.DEFAULT_N[r.g]);
+          var b = C.DEF_BASE[r.g];
+          if (rr.dx !== undefined) {                              // versions 1 and 2: shifts from the baseline (north positive)
+            rr.right = String(round3(b[0] + parseFloat(rr.dx)));
+            rr.up = String(round3(b[1] + parseFloat(rr.dy)));
+          } else if (rr.left !== undefined) {                     // version 3: top-left corner, measured down
+            var nwx = parseFloat(rr.left) + TOP[0], nwy = TOP[1] - parseFloat(rr.down);
+            var cb = Math.cos(parseFloat(rr.tilt) * Math.PI / 180) * L;
+            if (r.ns) {
+              rr.right = String(round3(nwx));
+              rr.up = String(round3(nwy - cb));
+            } else {
+              var sgn = C.FACING[r.g] === 'W' ? 1 : -1;
+              var len = parseFloat(rr.n) * W + (parseFloat(rr.n) - 1) * (parseFloat(rr.gap) / 12);
+              rr.right = String(round3(sgn > 0 ? nwx : nwx + cb));
+              rr.up = String(round3(nwy - len));
+            }
+          }
+          delete rr.dx; delete rr.dy; delete rr.left; delete rr.down;
+        });
+      });
+    }
+    // All-rows move: version 3 was down positive; versions 1 to 4 used allDx and allDy, now allRight and allUp.
+    SIDES.forEach(function (side) {
+      var s = inp[side[0]];
+      if (!s || v >= 5) return;
+      if (s.allDx !== undefined && s.allRight === undefined) s.allRight = s.allDx;
+      if (s.allDy !== undefined && s.allUp === undefined) s.allUp = String(v === 3 ? -parseFloat(s.allDy) : parseFloat(s.allDy));
+      delete s.allDx; delete s.allDy;
+    });
+    if (inp.site) {
+      if (inp.site.timeZone === undefined && inp.site.utcOffset !== undefined) {
+        inp.site.timeZone = legacyZone(parseFloat(inp.site.utcOffset), parseFloat(inp.site.dstStart), parseFloat(inp.site.dstEnd));
+      }
+      delete inp.site.utcOffset; delete inp.site.dstStart; delete inp.site.dstEnd;
+    }
+    inp.site = Object.assign({}, SITE_DEFAULTS, inp.site || {});
+    if (v < 5 && obj.results) obj.results = renameResults(obj.results);
+    obj.inputs = inp;
+    obj.version = 6;
+    return obj;
+  }
+  function currentResults(prm, sc, D, dd) {
+    var res = { summary: summaryValues(sc, dd.en, D, prm), year: null };
+    if (yearC && yearC.done && yearC.key === yearKey(prm)) {
+      res.year = { original: yearC.original.slice(), alternative: yearC.alternative.slice(),
+                   totalOriginal: sumArr(yearC.original), totalAlternative: sumArr(yearC.alternative) };
+    }
+    return res;
+  }
+  function scStatus(msg) { $('scStatus').textContent = msg; }
+  function download(text, filename) {
+    try {
+      var blob = new Blob([text], { type: 'text/javascript' });
+      var url = URL.createObjectURL(blob), a = document.createElement('a');
+      a.href = url; a.download = filename;
+      document.body.appendChild(a); a.click(); document.body.removeChild(a);
+      setTimeout(function () { URL.revokeObjectURL(url); }, 1000);
+      return true;
+    } catch (e) { return false; }
+  }
+  function saveScenario() {
+    var prm = params(), D = dateInfo(), sc = geometry(prm), dd = dayData(prm, D.N, sc);
+    if (!(yearC && yearC.done && yearC.key === yearKey(prm))) {
+      scStatus('The yearly totals are still computing; save again in a moment.');
+      return;
+    }
+    var name = ($('scName').value || 'Scenario').replace(/[\r\n]+/g, ' ').trim() || 'Scenario';
+    var obj = { format: 'array-shading-scenario', version: 6, name: name, saved: new Date().toISOString(),
+                inputs: scenarioInputs(), results: roundDeep(currentResults(prm, sc, D, dd)) };
+    var text = '// Array shading scenario "' + name + '": location, parameters, and summary results. Load it in the render page.\n' +
+               'var ARRAY_SCENARIO = ' + JSON.stringify(obj, null, 2) + ';\n';
+    $('scText').value = text;
+    var file = name.replace(/[^A-Za-z0-9_-]+/g, '_') + '.js';
+    scStatus(download(text, file) ? 'Saved ' + file + '. The same text is in the box below.'
+                                  : 'Download is not available here; copy the text from the box below.');
+  }
+  function parseScenario(text) {
+    var i = text.indexOf('var ARRAY_SCENARIO');
+    if (i < 0) throw new Error('no ARRAY_SCENARIO in the text');
+    var body = text.slice(text.indexOf('=', i) + 1).trim().replace(/;\s*$/, '');
+    var obj = JSON.parse(body);
+    if (!obj || obj.format !== 'array-shading-scenario') throw new Error('not an array shading scenario');
+    return obj;
+  }
+  function loadScenario(text, source) {
+    var obj;
+    try { obj = upgradeScenario(parseScenario(text)); } catch (e) { scStatus('Could not load ' + source + ': ' + e.message); return; }
+    applyScenarioInputs(obj.inputs || {});
+    syncAllSliders();
+    loadedScenario = obj;
+    redraw('full');
+    scStatus('Loaded "' + (obj.name || 'scenario') + '" (saved ' + String(obj.saved || '').slice(0, 16).replace('T', ' ') + ').');
+  }
+  var CMP_ROWS = [
+    { key: 'modules', label: 'Modules', dec: 0, day: false },
+    { key: 'outputKwh', label: 'Day output, kWh', dec: 1, day: true },
+    { key: 'potentialKwh', label: 'Day unobstructed output, kWh', dec: 1, day: true },
+    { key: 'maxTopLocalFt', label: 'Highest top above grade, ft', dec: 1, day: false },
+    { key: 'modulesOverCap', label: 'Modules over the cap', dec: 0, day: false }
+  ];
+  // Loaded scenario against the current results: saved and now, for the original and the alternative.
+  function renderComparison() {
+    var box = $('cmp');
+    if (!loadedScenario) { box.innerHTML = ''; return; }
+    var saved = loadedScenario.results;
+    if (!saved || !saved.summary || !saved.summary.day) {
+      box.innerHTML = '<div class="note">The loaded file has no saved results to compare with.</div>';
+      return;
+    }
+    var prm = params(), D = dateInfo(), sc = geometry(prm), dd = dayData(prm, D.N, sc);
+    var now = currentResults(prm, sc, D, dd);
+    var sameDay = saved.summary.day.N === D.N, diffs = 0;
+    function fmt(x, dec) { return (x === null || x === undefined || !isFinite(x)) ? '—' : x.toFixed(dec); }
+    var h = '<table class="cmp"><tr><th>Item</th><th>Original, saved</th><th>Original, now</th>' +
+            '<th>Alternative, saved</th><th>Alternative, now</th></tr>';
+    function addRow(label, cells) {
+      h += '<tr><td>' + label + '</td>';
+      cells.forEach(function (c) { h += '<td' + (c.diff ? ' class="diff"' : '') + '>' + c.text + '</td>'; });
+      h += '</tr>';
+    }
+    CMP_ROWS.forEach(function (r) {
+      var cells = [];
+      ['original', 'alternative'].forEach(function (side) {
+        var s = (saved.summary[r.key] || {})[side], n = now.summary[r.key][side];
+        if (r.day && !sameDay) { cells.push({ text: fmt(s, r.dec), diff: false }, { text: fmt(n, r.dec), diff: false }); return; }
+        var ss = fmt(s, r.dec), nn = fmt(n, r.dec), d = ss !== nn;
+        if (d) diffs++;
+        cells.push({ text: ss, diff: d }, { text: nn, diff: d });
+      });
+      addRow(r.label + (r.day && !sameDay ? ' (saved for ' + saved.summary.day.label + ')' : ''), cells);
+    });
+    var sy = saved.year, ny = now.year, cy = [];
+    ['original', 'alternative'].forEach(function (side) {
+      var key = side === 'original' ? 'totalOriginal' : 'totalAlternative';
+      var ss = sy ? fmtK(sy[key]) : '—', nn = ny ? fmtK(ny[key]) : '…', d = !!(sy && ny) && ss !== nn;
+      if (d) diffs++;
+      cy.push({ text: ss, diff: d }, { text: nn, diff: d });
+    });
+    addRow('Year output, kWh', cy);
+    h += '</table>';
+    var msg = diffs === 0 ? 'Matches the saved values.'
+      : diffs + (diffs === 1 ? ' value differs' : ' values differ') + ' from the saved values (highlighted).';
+    if (!sameDay) msg += ' Day rows are not compared: saved for ' + saved.summary.day.label + '.';
+    box.innerHTML = '<div class="note">' + msg + '</div>' + h;
+  }
+
+  function mergeInfo(a, b) {
+    var o = {}, k;
+    for (k in a) o[k] = a[k];
+    for (k in b) o[k] = b[k];
+    return o;
+  }
+
+  // mode 'view': canvases and readouts only (fast, used while dragging).
+  // mode 'full': also the day energy, the five-time strip and the tables (used on release and on input changes).
+  function redraw(mode) {
+    var prm = params(), D = dateInfo(), sc = geometry(prm);
+    var clock = parseFloat($('time').value);
+    var solar = solarFromClock(D.N, clock, prm.site);
+    var sun = C.sunPosition(D.N, solar, prm.site);
+    var azDeg = sun.az * 180 / Math.PI, altDeg = sun.alt * 180 / Math.PI;
+    var sunTxt = sun.alt > 0 ? 'sun ' + altDeg.toFixed(1) + '° up, ' + C.compassName(azDeg) +
+                 ' (' + Math.round(azDeg) + '°)' : 'sun below horizon';
+    var when = D.label + ' · ' + fmtClock(clock, D.N, prm.site) + ' (solar ' + C.solarText(solar) + ')';
+    var shO = sun.alt > 0 ? C.frameShade(sc.original, sun.s) : null;
+    var shA = sun.alt > 0 ? C.frameShade(sc.alternative, sun.s) : null;
+    var dd = mode === 'full' ? dayData(prm, D.N, sc) : freshDay(prm, D.N);
+    var enO = dd ? dd.en.original : null, enA = dd ? dd.en.alternative : null;
+    var outO = nowOutput(sc.original, sun, shO, prm), outA = nowOutput(sc.alternative, sun, shA, prm);
+    var info = { cap: prm.cap, meas: prm.meas };
+    drawScene($('cO'), sc.original, sun, shO, cam, mergeInfo(info, {
+      title: 'Original', sub: when + ' · ' + sunTxt, count: sc.original.mods.length + ' modules',
+      total: totalText(outO, enO, prm, D.label), hv: hoverData(outO, enO, prm, D.label)
+    }));
+    drawScene($('cA'), sc.alternative, sun, shA, cam, mergeInfo(info, {
+      title: 'Alternative', sub: when + ' · ' + sunTxt, count: sc.alternative.mods.length + ' modules',
+      total: totalText(outA, enA, prm, D.label), hv: hoverData(outA, enA, prm, D.label)
+    }));
+    $('capO').textContent = 'Original: ' + sc.original.mods.length + ' modules';
+    $('capA').textContent = 'Alternative: ' + sc.alternative.mods.length + ' modules';
+    $('dateLabel').textContent = D.label + '   (day ' + D.N + ' of 365)';
+    $('timeLabel').textContent = fmtClock(clock, D.N, prm.site) + ' · solar ' + C.solarText(solar) + ' · ' + sunTxt;
+    if (mode === 'full') {
+      renderSummary(sc, dd.en, D, prm);
+      renderGroups(sc, dd.en, shO, shA);
+      requestYear(prm, sc);
+      renderComparison();
+      var off = clockShift(D.N, prm.site);
+      dd.strip.forEach(function (st, k) {
+        var lab = fmtClock(st.h + off, D.N, prm.site) + ' (solar ' + C.solarText(st.h) + ')';
+        drawScene($('o' + k), sc.original, st.sun, st.shO, STRIP_CAM,
+          mergeInfo(info, { title: 'Original', sub: lab, count: '', hv: hoverData(st.outO, dd.en.original, prm, D.label) }));
+        drawScene($('a' + k), sc.alternative, st.sun, st.shA, STRIP_CAM,
+          mergeInfo(info, { title: 'Alternative', sub: lab, count: '', hv: hoverData(st.outA, dd.en.alternative, prm, D.label) }));
+      });
+    }
+  }
+
+  function bindCanvas(canvas) {
+    var last = null;
+    canvas.addEventListener('pointerdown', function (e) {
+      last = [e.clientX, e.clientY];
+      canvas.setPointerCapture(e.pointerId);
+    });
+    canvas.addEventListener('pointermove', function (e) {
+      if (!last) return;
+      cam.az = (cam.az + (e.clientX - last[0]) * 0.4 + 360) % 360;
+      cam.el = C.clamp(cam.el + (e.clientY - last[1]) * 0.25, 3, 84);
+      last = [e.clientX, e.clientY];
+      redraw('view');
+    });
+    function end() { last = null; }
+    canvas.addEventListener('pointerup', end);
+    canvas.addEventListener('pointercancel', end);
+    canvas.addEventListener('wheel', function (e) {
+      e.preventDefault();
+      cam.zoom = C.clamp(cam.zoom * Math.exp(-e.deltaY * 0.001), 0.5, 3);
+      redraw('view');
+    }, { passive: false });
+  }
+  function bindHover(canvas) {
+    canvas.addEventListener('pointermove', function (e) { showTip(canvas, e); });
+    canvas.addEventListener('pointerleave', hideTip);
+  }
+
+  function buildVTicks() {
+    var h = '';
+    [6, 9, 12, 15, 18, 21].forEach(function (t) {
+      var top = 10 + (t - 6) / 15 * 360;
+      var lab = t === 12 ? '12 pm' : (t > 12 ? (t - 12) + ' pm' : t + ' am');
+      h += '<span style="top:' + top.toFixed(1) + 'px">' + lab + '</span>';
+    });
+    $('vticks').innerHTML = h;
+  }
+
+  // The time zone lookup: when the latitude or longitude changes, or the button is pressed, the zone for that location is
+  // fetched (Open-Meteo returns it for timezone=auto). Only the two numbers are sent. A newer lookup cancels an older reply.
+  var LOOKUP_URL = 'https://api.open-meteo.com/v1/forecast';
+  var lookupId = 0;
+  function zoneStatus(msg) { $('zoneStatus').textContent = msg; }
+  function zoneNames() {
+    try { return Intl.supportedValuesOf('timeZone'); } catch (e) {
+      return [C.DEFAULT_SITE.timeZone, 'UTC', 'Europe/London', 'Europe/Berlin', 'Asia/Kolkata', 'Australia/Sydney'];
+    }
+  }
+  function lookupZone() {
+    var lat = num('latitude', NaN), lon = num('longitude', NaN);
+    if (!isFinite(lat) || !isFinite(lon)) { zoneStatus('Enter a latitude and longitude to look up the time zone.'); return; }
+    if (typeof fetch !== 'function') { zoneStatus('This browser cannot look up time zones; pick one from the list.'); return; }
+    var id = ++lookupId;
+    zoneStatus('Looking up the time zone for ' + lat + ', ' + lon + '…');
+    var url = LOOKUP_URL + '?latitude=' + encodeURIComponent(lat) + '&longitude=' + encodeURIComponent(lon) +
+      '&timezone=auto&current=temperature_2m';
+    fetch(url).then(function (r) {
+      if (!r.ok) throw new Error('HTTP ' + r.status);
+      return r.json();
+    }).then(function (j) {
+      if (id !== lookupId) return;
+      var z = C.validZone(j && j.timezone);
+      if (!z) throw new Error('no time zone in the reply');
+      $('timeZone').value = z;
+      zoneStatus('Time zone for this location: ' + z + '.');
+      redraw('full');
+    }).catch(function (e) {
+      if (id !== lookupId) return;
+      zoneStatus('Time zone lookup failed (' + e.message + '). Pick the zone from the list.');
+    });
+  }
+  $('zoneLookup').addEventListener('click', lookupZone);
+  ['latitude', 'longitude'].forEach(function (id) { $(id).addEventListener('change', lookupZone); });
+  $('timeZone').addEventListener('change', function () {
+    zoneStatus(C.validZone($('timeZone').value) ? '' : 'Unknown time zone: pick one from the list.');
+  });
+  SITE_FIELDS.forEach(function (id) {
+    $(id).addEventListener('change', function () { redraw('full'); });
+  });
+  // A slider drag updates its number box and redraws the views; releasing the slider (or changing a number box) does the full update.
+  ['knobsO', 'knobsA'].forEach(function (id) {
+    $(id).addEventListener('input', function (e) {
+      var t = e && e.target;
+      if (t && t.classList && t.classList.contains('kr')) { copyFromSlider(t); redraw('view'); }
+    });
+    $(id).addEventListener('change', function (e) {
+      var t = e && e.target;
+      if (t && t.classList && t.classList.contains('kr')) copyFromSlider(t);
+      else if (t && t.id) syncSliderFor(t);
+      redraw('full');
+    });
+  });
+  ['day', 'time'].forEach(function (id) {
+    $(id).addEventListener('input', function () { redraw('view'); });
+    $(id).addEventListener('change', function () { redraw('full'); });
+  });
+  document.querySelectorAll('button[data-cam]').forEach(function (b) {
+    b.addEventListener('click', function () {
+      var v = b.getAttribute('data-cam').split(',').map(Number);
+      cam = { az: v[0], el: v[1], zoom: v[2] };
+      document.querySelectorAll('button[data-cam]').forEach(function (x) { x.classList.remove('on'); });
+      b.classList.add('on');
+      redraw('view');
+    });
+  });
+  SITE_FIELDS.forEach(function (id) { $(id).value = SITE_DEFAULTS[id]; });
+  $('zoneList').innerHTML = zoneNames().map(function (z) { return '<option value="' + z + '">'; }).join('');
+  $('knobsO').innerHTML = buildKnobs('o_', DEF_O);
+  $('knobsA').innerHTML = buildKnobs('a_', DEF_A);
+  syncAllSliders();
+  renderYear({ original: [], alternative: [], done: false });
+  buildVTicks();
+  bindCanvas($('cO'));
+  bindCanvas($('cA'));
+  bindHover($('cO'));
+  bindHover($('cA'));
+  for (var k = 0; k < 5; k++) { bindHover($('o' + k)); bindHover($('a' + k)); }
+  $('scSave').addEventListener('click', saveScenario);
+  $('scLoadText').addEventListener('click', function () { loadScenario($('scText').value, 'the text box'); });
+  $('scFile').addEventListener('change', function (e) {
+    var f = e.target.files && e.target.files[0];
+    if (!f) return;
+    var rd = new FileReader();
+    rd.onload = function () { loadScenario(String(rd.result), f.name); };
+    rd.readAsText(f);
+    e.target.value = '';
+  });
+  redraw('full');
+})();
+}
+</script>
+</body>
+</html>
