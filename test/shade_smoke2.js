@@ -19,9 +19,18 @@ function makeCtx2d() {
   });
 }
 const elements = {};
+function makeClassList() {
+  const s = new Set();
+  return {
+    add: c => { s.add(c); },
+    remove: c => { s.delete(c); },
+    contains: c => s.has(c),
+    toggle: (c, force) => { const on = force === undefined ? !s.has(c) : !!force; if (on) s.add(c); else s.delete(c); return on; }
+  };
+}
 function makeEl(id, init) {
   const e = Object.assign({
-    id: id, value: '', checked: false, textContent: '', innerHTML: '',
+    id: id, value: '', checked: false, textContent: '', innerHTML: '', classList: makeClassList(),
     width: 640, height: 460, listeners: {}, _ctx: null,
     addEventListener(type, fn) { (this.listeners[type] = this.listeners[type] || []).push(fn); },
     setPointerCapture() {},
@@ -48,7 +57,9 @@ const onOf = g => g !== 'NI' && g !== 'SI';
 
 const defaults = {
   rise: {}, wallh: {}, walldx: {}, alb: {}, bif: {}, rating: {}, sf: {}, cap: {}, meas: {},
-  latitude: {}, longitude: {}, timeZone: {}, zoneLookup: {}, zoneStatus: {}, zoneList: {},
+  latitude: {}, longitude: {}, timeZone: {}, zoneLookup: {}, zoneStatus: {}, zoneList: {}, trueNorthOffset: {},
+  stage: {}, boxO: {}, boxA: {}, boxT: {}, ctrlO: {}, ctrlA: {}, modO: {}, modA: {}, moduleInfo: {}, seasonLabel: {}, seasons: {},
+  helpPop: {},
   day: { value: '355' }, time: { value: '9' },
   knobsO: {}, knobsA: {}, yearLabel: {},
   scName: { value: 'Scenario 1' }, scSave: {}, scFile: { files: [], value: '' }, scText: { value: '' },
@@ -77,12 +88,14 @@ for (let k = 0; k < 5; k++) {
 }
 for (const id of Object.keys(defaults)) elements[id] = makeEl(id, defaults[id]);
 
+const docListeners = {};
 const document = {
   getElementById(id) {
     if (!elements[id]) throw new Error('missing element #' + id);
     return elements[id];
   },
-  querySelectorAll() { return []; }
+  querySelectorAll() { return []; },
+  addEventListener(type, fn) { (docListeners[type] = docListeners[type] || []).push(fn); }
 };
 const pending = [];
 const flush = () => { while (pending.length) pending.shift()(); };
@@ -107,6 +120,7 @@ function expectEq(name, got, want) {
 }
 const tick = () => new Promise(r => setImmediate(r));
 const fire = (id, type) => (elements[id].listeners[type] || []).forEach(fn => fn());
+const fireEv = (id, type, ev) => (elements[id].listeners[type] || []).forEach(fn => fn(ev));
 const setVal = (id, v) => { elements[id].value = v; };
 const setChk = (id, v) => { elements[id].checked = v; };
 const yearText = () => elements.yearLabel.innerHTML.replace(/<[^>]+>/g, '');
@@ -141,6 +155,35 @@ const LOOMIS_YEAR = 'Year, kWh: original 40,437 · alternative 41,087';
   expectEq('alternative modules on load', capA(), '44');
   expectEq('original modules on load', capO(), '44');
 
+  // Solstices and equinoxes: Dec 21 is the winter solstice (the default day); an ordinary day has no label.
+  expectEq('Dec 21 is labelled the winter solstice', elements.seasonLabel.textContent, 'winter solstice');
+  setVal('day', '172'); fire('day', 'change'); flush();
+  expectEq('Jun 21 is labelled the summer solstice', elements.seasonLabel.textContent, 'summer solstice');
+  setVal('day', '1'); fire('day', 'change'); flush();
+  expectEq('an ordinary day has no season label', elements.seasonLabel.textContent, '');
+  setVal('day', '355'); fire('day', 'change'); flush();
+
+  // Module size in millimetres and in feet and inches to the sixteenth, on each controls box and in the site box.
+  expectEq('module size on the controls: mm, ft/in, and area',
+    elements.modO.textContent, 'Module 2100 × 1050 mm (6 ft 10 11/16 in × 3 ft 5 5/16 in), 2.205 m² (23.7 ft²)');
+  expectEq('module size in the site box matches', elements.moduleInfo.textContent === elements.modO.textContent, true);
+
+  // Collapsing a view hides it and its controls, so the other view goes full width; the last open view stays open.
+  const docClick = id => (docListeners.click || []).forEach(fn => fn({ target: { getAttribute: n => (n === 'data-tog' ? id : null) } }));
+  docClick('boxO');
+  expectEq('collapsing the original view: its controls hidden, one-column stage',
+    [elements.stage.classList.contains('off-o'), elements.stage.classList.contains('wide')].join(' '), 'true false');
+  docClick('boxA');
+  expectEq('the last open view stays open', elements.boxA.classList.contains('collapsed'), false);
+  docClick('boxO');
+  expectEq('expanding the original view restores the wide stage',
+    [elements.stage.classList.contains('off-o'), elements.stage.classList.contains('wide')].join(' '), 'false true');
+
+  // Every (i) button in the page has its help text.
+  const helpKeys = [...new Set([...html.matchAll(/data-help="(\w+)"/g)].map(m => m[1]))];
+  const missingHelp = helpKeys.filter(k => !new RegExp('\\b' + k + ': "').test(script));
+  expectEq('every (i) button has help text (' + helpKeys.join(', ') + ')', missingHelp.length, 0);
+
   // The compass rose: in the default view north points up and to the right of the rose centre, east down and to the right.
   const roseLabels = elements.cO._ctx.__texts || [];
   const lastLabel = t => roseLabels.filter(l => l.text === t).pop();
@@ -150,6 +193,36 @@ const LOOMIS_YEAR = 'Year, kWh: original 40,437 · alternative 41,087';
   expectEq('compass rose: east label down and to the right', lastLabel('E').x > roseX && lastLabel('E').y > roseY, true);
   expectEq('compass rose: south label down and to the left', lastLabel('S').x < roseX && lastLabel('S').y > roseY, true);
   expectEq('compass rose: west label up and to the left', lastLabel('W').x < roseX && lastLabel('W').y < roseY, true);
+
+  // Turning true north: a click on the clockwise arrow adds 15 degrees to the offset and redraws every view; the other arrow
+  // takes it back; shift-click moves by 1 degree. The offset is saved with the scenario.
+  const arrow = (dir, view = 'cO') => elements[view]._roseHits.find(h => h.delta * dir > 0);
+  const click = (view, h, shift) => fireEv(view, 'click', { clientX: h.x, clientY: h.y, shiftKey: !!shift });
+  click('cO', arrow(1));
+  expectEq('clockwise arrow turns true north 15 degrees', elements.trueNorthOffset.value, '15');
+  for (let i = 0; i < 5; i++) click('cO', arrow(1));
+  flush();
+  expectEq('offset 90: the rose N label sits right of and below the centre (true north is graph east)',
+    lastLabel('N').x > roseX && lastLabel('N').y > roseY, true);
+  expectEq('offset 90: the year totals change', yearText() !== LOOMIS_YEAR, true);
+  click('cA', arrow(1, 'cA'));
+  expectEq('the arrows on the alternative view turn it too', elements.trueNorthOffset.value, '105');
+  for (let i = 0; i < 7; i++) click('cO', arrow(-1));
+  flush();
+  expectEq('offset back to 0: year totals restored', yearText(), LOOMIS_YEAR);
+  click('cO', arrow(1), true);
+  expectEq('shift-click moves 1 degree', elements.trueNorthOffset.value, '1');
+  click('cO', arrow(-1), true);
+  flush();
+  expectEq('shift-click back: offset 0 and year totals restored', elements.trueNorthOffset.value + ' ' + yearText(), '0 ' + LOOMIS_YEAR);
+  click('cO', arrow(1));
+  flush();
+  fire('scSave', 'click');
+  flush();
+  expectEq('the offset is saved with the scenario', /"trueNorthOffset": "15"/.test(elements.scText.value), true);
+  click('cO', arrow(-1));
+  flush();
+  expectEq('offset back to 0 after saving', elements.trueNorthOffset.value, '0');
 
   // Changing the latitude looks up the zone. A London location changes the clock labels and the year; the default location
   // brings both back.
@@ -187,7 +260,7 @@ const LOOMIS_YEAR = 'Year, kWh: original 40,437 · alternative 41,087';
   fire('scSave', 'click');
   flush();
   const savedText = elements.scText.value;
-  expectEq('save writes version 6', /"version": 6,/.test(savedText), true);
+  expectEq('save writes version 7', /"version": 7,/.test(savedText), true);
   expectEq('save keeps the latitude, longitude, and zone in the file',
     /"latitude": "38\.8"/.test(savedText) && /"longitude": "-121\.2"/.test(savedText) &&
     /"timeZone": "America\/Los_Angeles"/.test(savedText), true);
@@ -258,6 +331,9 @@ const LOOMIS_YEAR = 'Year, kWh: original 40,437 · alternative 41,087';
   expectEq('no-results file: its time zone loads', elements.timeZone.value, 'America/Chicago');
   expectEq('no-results file: other site fields take the defaults', elements.rise.value, '5');
   expectEq('no-results file: day from its view', elements.dateLabel.textContent, 'Jun 21   (day 172 of 365)');
+  loadRaw({ format: 'array-shading-scenario', version: 6, name: 'v6 test', saved: '2026-01-01T00:00:00Z',
+    inputs: { site: SITE, view: { day: '355', time: '9' } } });
+  expectEq('a version 6 file without the offset loads at 0', elements.trueNorthOffset.value, '0');
 
   // Older layouts: version 1 (gap in feet, positions as shifts from the baseline, north positive) and version 3
   // (top-left positions, measured down). Both land on the baseline locations on graph paper, with the all-rows move.

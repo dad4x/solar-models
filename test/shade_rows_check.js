@@ -170,5 +170,17 @@ ok('lat 60 N, Jun 21: sun up at 3 am solar (outside the old 4 to 20 h window)',
 const e60 = C.daily(sO, NJ, { site: { lat: 60, lon: 10, timeZone: 'Europe/Oslo' } });
 ok('lat 60 N, Jun 21: day energy finite and positive', isFinite(e60.kwh) && e60.kwh > 0);
 
+// 12. True north offset: graph north (the sketch's up) turned clockwise by the offset gives true north, and the sun vector
+// is in the sketch's frame. At 0 the noon sun in the south (Loomis, Dec 21) lies on the sketch's south side; at 90 true
+// north is graph east, so the same sun lies on the sketch's west side. 360 is the same as 0.
+const sK0 = C.sunPosition(N, 12, S0), sK90 = C.sunPosition(N, 12, Object.assign({}, S0, { trueNorthOffset: 90 }));
+check('offset 0: noon sun on the sketch south side (y negative)', sK0.s[1], -Math.cos(sK0.alt), 1e-6);
+check('offset 90: noon sun on the sketch west side (x negative)', sK90.s[0], -Math.cos(sK90.alt), 1e-6);
+check('offset 90: noon sun has no graph north component', sK90.s[1], 0, 1e-6);
+check('offset 90: altitude and true azimuth unchanged', sK90.alt - sK0.alt, 0, 1e-12);
+check('offset 90: true azimuth unchanged', sK90.az - sK0.az, 0, 1e-12);
+check('offset 360 is the same as 0', C.sunPosition(N, 12, Object.assign({}, S0, { trueNorthOffset: 360 })).s[0], sK0.s[0], 1e-12);
+ok('offset 90: the day energy on the layout changes', Math.abs(C.daily(sO, N, { site: Object.assign({}, S0, { trueNorthOffset: 90 }) }).kwh - eO.kwh) > 1e-6);
+
 console.log(fails ? fails + ' check(s) failed' : 'all checks passed');
 process.exitCode = fails ? 1 : 0;

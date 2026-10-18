@@ -21,7 +21,7 @@ Saving writes `<name>.js`, which contains `var ARRAY_SCENARIO = {...}`. Loading 
 
 ## Assumptions
 
-- The sketch's up is true north.
+- Graph north (the sketch's up) is true north unless the true north offset is set under Location.
 - Clear-sky irradiance. Ground albedo (0.40) and the system factor (0.85) are placeholders to set for the site.
 - Shading comes from the modules and one east wall only. Trees, buildings, and neighbours are not modelled.
 - Monthly and yearly totals use the 15th of each month, scaled by the days in the month.
