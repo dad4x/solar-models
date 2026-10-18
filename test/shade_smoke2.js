@@ -67,7 +67,8 @@ const defaults = {
   tip: { style: {}, offsetWidth: 200 },
   cO: { width: 640, height: 460 }, cA: { width: 640, height: 460 },
   capO: {}, capA: {}, timeLabel: {}, dateLabel: {}, sum: {}, grp: {}, mticks: {}, vticks: {},
-  gr: { width: 640, height: 130 }, grPlan: {}, grAlt: {}, grTitle: {}, grUse: {}
+  gr: { width: 640, height: 130 }, grPlan: {}, grAlt: {}, grTitle: {}, grUse: {},
+  dg: { width: 640, height: 130 }, dgPlan: {}, dgAlt: {}, dgTitle: {}, dgUse: {}
 };
 for (const [pre, base] of [['o_', BASE_O], ['a_', BASE_A]]) {
   defaults[pre + 'all_dx'] = { value: '0' };
@@ -460,6 +461,21 @@ const LOOMIS_YEAR = 'Year, kWh: plan 40,437 · alternative 41,087';
     /· Alternative · day total/.test(elements.grTitle.textContent) && elements.grAlt.classList.contains('on') && !elements.grPlan.classList.contains('on'), true);
   fire('grPlan', 'click');
   expectEq('and back to the plan', /· Plan · day total/.test(elements.grTitle.textContent) && elements.grPlan.classList.contains('on'), true);
+
+  // The date card's month graph: in the day card, with the year total in its title (the same number as the year label), the
+  // month names under it, and the same Plan/Alternative switch as the time graph.
+  flush();   // the yearly steps finish first: until then both the title and the year label read "…"
+  const dgYear = /year ([\d,]+) kWh/.exec(elements.dgTitle.textContent), yrPlan = /plan ([\d,]+)/.exec(yearText());
+  expectEq('the date graph title names the layout and matches the year label',
+    /^Projected output by month, kWh · Plan · year [\d,]+ kWh$/.test(elements.dgTitle.textContent) && !!dgYear && !!yrPlan && dgYear[1] === yrPlan[1], true);
+  expectEq('the date graph sits in the day card, after its slider and labels',
+    html.indexOf('id="dg"') > html.indexOf('id="boxDay"') && html.indexOf('id="dg"') < html.indexOf('id="boxA"'), true);
+  expectEq('the date graph names the months', ['Jan', 'Jun', 'Dec'].every(n => elements.dg._ctx.__texts.some(t => t.text === n)), true);
+  fire('dgAlt', 'click');
+  expectEq('the date graph switches to the alternative, and so does the time graph',
+    /· Alternative · year/.test(elements.dgTitle.textContent) && elements.dgAlt.classList.contains('on') && elements.grAlt.classList.contains('on'), true);
+  fire('dgPlan', 'click');
+  expectEq('and back to the plan on both graphs', /· Plan · year/.test(elements.dgTitle.textContent) && elements.grPlan.classList.contains('on'), true);
 
   // Dragging a row: press on the front-most module and move the pointer across the ground. The row's right and up follow the
   // pointer to 0.1 ft, and moving back returns them.

@@ -122,7 +122,7 @@ h1 .info{width:20px;height:20px;font-size:12px;margin-left:8px}
 .grhead{display:flex;flex-wrap:wrap;align-items:center;gap:4px 6px;margin:0 0 4px}
 .grhead .grtitle{flex:1 1 220px;min-width:0;font-size:12px;font-weight:600;color:var(--ink);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .grhead button{font-size:12px;padding:2px 8px}
-#gr{height:130px;background:#fff;border:1px solid var(--line);border-radius:6px;cursor:default;touch-action:pan-y}
+#gr,#dg{height:130px;background:#fff;border:1px solid var(--line);border-radius:6px;cursor:default;touch-action:pan-y}
 .grlegend{display:flex;flex-wrap:wrap;gap:4px 14px;font-size:12px;color:var(--muted);margin-top:4px}
 @media (max-width:899px){
   .ticks{height:auto;display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:6px 2px;margin-top:6px}
@@ -225,6 +225,11 @@ h1 .info{width:20px;height:20px;font-size:12px;margin-left:8px}
 <input id="day" type="range" min="1" max="365" step="1" value="355">
 <div class="seasons" id="seasons"></div>
 <div class="ticks" id="mticks"></div>
+</div>
+<div class="grwrap">
+<div class="grhead"><span class="grtitle" id="dgTitle"></span><button class="grbtn on" id="dgPlan" type="button">Plan</button><button class="grbtn" id="dgAlt" type="button">Alternative</button><button class="info" type="button" data-help="dategraph" aria-label="Help: projected output by month">i</button></div>
+<canvas id="dg" height="130"></canvas>
+<div class="grlegend"><span><i class="sw" style="background:#2f6fb0"></i>projected output, kWh per month</span><span><i class="sw" style="background:#c0502d"></i><span id="dgUse"></span></span></div>
 </div>
 </div>
 </section>
@@ -907,6 +912,7 @@ if (typeof document !== 'undefined') {
     rows: "Base = lowest edge above grade (north and south rows: at the row's middle). Height difference = first to last module, + = east higher. Gap = space between modules in a row, in inches. Panels = modules in the row. Right and up place each row's base corner on graph paper, measured from the origin 0,0 at the south-west corner of the sketch; the defaults are the baseline locations. Panels and gap extend an east-west row north, and a north-south row east, from that corner. Turn the inner north and south rows on to try four rows in the north-south direction, with the east-west rows off. All rows moves every row together, right (+E) and up (+N). Each setting has a slider beside its number box. On a wide screen the column names sit above the rows, and each name's tooltip gives its range; type a value in a box for anything outside a slider's range. Drag a row's modules in either view to move that row: its right and up follow the pointer, to 0.1 ft.",
     time: "Local clock time in the time zone under Location, with that zone's daylight time for 2026. The slider runs from 5 am (left) to 9 pm (right), which covers sunrise and sunset on June 21 at the default site. The sun is computed from apparent solar time, so the time zone changes the clock labels, not the energy.",
     graph: "The projected output of the selected layout for this day, in kW at each clock time, on the same scale as the slider (5 am to 9 pm). It comes from the same clear-sky model as the day total, so the area under the curve is the day's output in kWh. Plan and Alternative choose the layout. The orange use line is for imported use data on the same clock; no use data is imported yet.",
+    dategraph: "The projected output of the selected layout for each month, in kWh. Each point is the month's total, the number on its monthly label, worked out for the 15th of the month and scaled by the days in the month. The points sit on the day slider's scale; the line between them is a guide. The marker is the selected day, and the reading is its month's total. Plan and Alternative choose the layout for both graphs. The orange use line is for imported monthly use data; nothing is imported yet.",
     day: "Monthly and yearly totals use the 15th of each month, scaled by the days in that month; checked at the default site against every day of the year, each month is within 2% and the year within 0.1%. The markers show the equinoxes and solstices for 2026; an equinox can fall a day earlier or later by time zone.",
     method: "Geometry: row positions are read from your sketch, so measure them to confirm. Each row's base corner is placed from the origin 0,0 on graph paper (east and north positive); the baseline locations are the defaults. Base elevation is the lowest edge above local grade; for the north and south rows it is at the middle of the row, and the height difference runs from the first module to the last, each module level across its own width. Shading uses the sun path for the location, the east wall (if on), and the modules only: no trees, house, or neighbor structures. True north is the sketch's up turned by the true north offset (0 by default), and the sun path follows it. Output is a clear-sky estimate: direct beam, sky diffuse, and ground-reflected light on each face, with the back face scaled by the bifaciality input. Ground reflection is ray-traced from each face to the ground it sees; each ground point is tested for direct sun against the array and the wall, and the sky diffuse reaching that ground is not reduced by the array."
   };
@@ -1367,6 +1373,7 @@ if (typeof document !== 'undefined') {
            '<i class="mo">' + (o == null ? '…' : fmtK(o)) + '</i><i class="mp">' + (a == null ? '…' : fmtK(a)) + '</i></span>';
     }
     $('mticks').innerHTML = h;
+    drawDateGraph(st);
     var all = st.done;
     $('yearLabel').innerHTML = 'Year, kWh: <span class="mo">plan ' + (all ? fmtK(sumArr(st.original)) : '…') +
       '</span> · <span class="mp">alternative ' + (all ? fmtK(sumArr(st.alternative)) : '…') + '</span>';
@@ -1669,6 +1676,7 @@ if (typeof document !== 'undefined') {
     $('seasonLabel').textContent = seasonName(D.N);
     $('timeLabel').textContent = fmtClock(clock, D.N, prm.site) + ' · solar ' + C.solarText(solar) + ' · ' + sunTxt;
     drawGraph(dd, prm, D, clock);
+    drawDateGraph(yearC);
     if (mode === 'full') {
       renderSummary(sc, dd.en, D, prm);
       renderGroups(sc, dd.en, shO, shA);
@@ -1801,7 +1809,8 @@ if (typeof document !== 'undefined') {
   // under the time it belongs to). The output line is the projected output of one layout for the selected day, from the
   // same per-step model as the day total. The use line is reserved: imported use data, an array of { t, kw } on the same
   // clock (hours and kW), goes in GRAPH.use and is drawn in orange.
-  var GRAPH = { view: 'plan', use: null, from: 5, to: 21, pad: 8 };
+  // The date card's graph has its own use line, GRAPH.dateUse (monthly kWh, see drawDateGraph); both follow the same view.
+  var GRAPH = { view: 'plan', use: null, dateUse: null, from: 5, to: 21, pad: 8 };
   function niceTop(v) {
     if (!(v > 0)) return 1;
     var p = Math.pow(10, Math.floor(Math.log(v) / Math.LN10)), f = v / p;
@@ -1882,6 +1891,75 @@ if (typeof document !== 'undefined') {
     $('grPlan').classList.toggle('on', planView);
     $('grAlt').classList.toggle('on', !planView);
   }
+  function niceCeil(v) {
+    if (!(v > 0)) return 1;
+    var p = Math.pow(10, Math.floor(Math.log(v) / Math.LN10)), f = v / p, steps = [1, 1.5, 2, 2.5, 3, 4, 5, 6, 8, 10];
+    for (var i = 0; i < steps.length; i++) if (f <= steps[i]) return steps[i] * p;
+    return 10 * p;
+  }
+  // The month graph on the date card: the projected output of the selected layout for each month (kWh), at the 15th of the
+  // month, the day each monthly total is worked out for, so its points are the numbers on the monthly labels. It runs on the
+  // day slider's scale. The use line is reserved like the time graph's: imported monthly use data, an array of { m, kwh } with
+  // m from 0 (January) to 11, goes in GRAPH.dateUse and is drawn in orange.
+  function drawDateGraph(st) {
+    var cv = $('dg'), ctx = cv.getContext('2d');
+    var W = cv.clientWidth || cv.width, H = cv.clientHeight || cv.height;
+    var dpr = (typeof window !== 'undefined' && window.devicePixelRatio) || 1;
+    cv.width = Math.round(W * dpr); cv.height = Math.round(H * dpr);
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    ctx.fillStyle = '#ffffff'; ctx.fillRect(0, 0, W, H);
+    st = st || { original: [], alternative: [], done: false };
+    var planView = GRAPH.view === 'plan', vals = planView ? st.original : st.alternative;
+    var D = dateInfo(), top = 18, base = H - 18, span = W - 2 * GRAPH.pad, m;
+    function X(n) { return GRAPH.pad + (n - 1) / 364 * span; }
+    var pts = [];
+    for (m = 0; m < 12; m++) if (vals[m] != null) pts.push({ t: C.dayOfYear(m + 1, 15), kw: vals[m] });
+    var use = (GRAPH.dateUse || []).map(function (u) { return { t: C.dayOfYear(u.m + 1, 15), kw: u.kwh }; });
+    var peak = 0;
+    pts.concat(use).forEach(function (p) { peak = Math.max(peak, p.kw); });
+    var ymax = niceCeil(peak);
+    function Y(v) { return base - v / ymax * (base - top); }
+    ctx.lineWidth = 1; ctx.strokeStyle = '#e3e7ed';
+    [ymax / 2, ymax].forEach(function (v) {
+      var y = Math.round(Y(v)) + 0.5;
+      ctx.beginPath(); ctx.moveTo(GRAPH.pad, y); ctx.lineTo(W - GRAPH.pad, y); ctx.stroke();
+    });
+    function trace(list, color, fill) {
+      if (list.length < 2) return;
+      function path() {
+        ctx.beginPath();
+        list.forEach(function (p, i) { if (i === 0) ctx.moveTo(X(p.t), Y(p.kw)); else ctx.lineTo(X(p.t), Y(p.kw)); });
+      }
+      if (fill) {
+        path();
+        ctx.lineTo(X(list[list.length - 1].t), base); ctx.lineTo(X(list[0].t), base); ctx.closePath();
+        ctx.fillStyle = fill; ctx.fill();
+      }
+      path(); ctx.strokeStyle = color; ctx.lineWidth = 2; ctx.stroke();
+    }
+    trace(pts, '#2f6fb0', 'rgba(47,111,176,0.12)');
+    trace(use, '#c0502d', null);
+    ctx.fillStyle = '#2f6fb0';
+    pts.forEach(function (p) { ctx.beginPath(); ctx.arc(X(p.t), Y(p.kw), 2.5, 0, 2 * Math.PI); ctx.fill(); });
+    // The month names under the points; the selected day as a line, and the curve's value at that day.
+    ctx.font = '10px system-ui'; ctx.fillStyle = '#5b6472'; ctx.textAlign = 'center';
+    for (m = 0; m < 12; m++) ctx.fillText(MNAMES[m], X(C.dayOfYear(m + 1, 15)), H - 4);
+    var v = pts.length ? valueAt(pts, C.clamp(D.N, pts[0].t, pts[pts.length - 1].t)) : null, mx = Math.round(X(D.N)) + 0.5;
+    ctx.strokeStyle = '#1d2430'; ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(mx, top); ctx.lineTo(mx, base); ctx.stroke();
+    if (v !== null) { ctx.fillStyle = '#2f6fb0'; ctx.beginPath(); ctx.arc(X(D.N), Y(v), 3.5, 0, 2 * Math.PI); ctx.fill(); }
+    var monthVal = vals[D.month - 1];
+    ctx.font = '11px system-ui'; ctx.fillStyle = '#5b6472'; ctx.textAlign = 'left';
+    ctx.fillText(fmtK(ymax) + ' kWh', GRAPH.pad + 2, top - 5);
+    ctx.fillStyle = '#1d2430'; ctx.textAlign = 'right';
+    ctx.fillText((planView ? 'Plan ' : 'Alternative ') + MNAMES[D.month - 1] + ': ' +
+      (monthVal == null ? '—' : fmtK(monthVal) + ' kWh'), W - GRAPH.pad, top - 5);
+    $('dgTitle').textContent = 'Projected output by month, kWh · ' + (planView ? 'Plan' : 'Alternative') + ' · year ' +
+      (st.done ? fmtK(sumArr(vals)) : '…') + ' kWh';
+    $('dgUse').textContent = GRAPH.dateUse ? 'use, kWh: imported' : 'use, kWh: not imported yet';
+    $('dgPlan').classList.toggle('on', planView);
+    $('dgAlt').classList.toggle('on', !planView);
+  }
 
   // The time zone lookup: when the latitude or longitude changes, or the button is pressed, the zone for that location is
   // fetched (Open-Meteo returns it for timezone=auto). Only the two numbers are sent. A newer lookup cancels an older reply.
@@ -1943,6 +2021,8 @@ if (typeof document !== 'undefined') {
   });
   $('grPlan').addEventListener('click', function () { GRAPH.view = 'plan'; redraw('view'); });
   $('grAlt').addEventListener('click', function () { GRAPH.view = 'alternative'; redraw('view'); });
+  $('dgPlan').addEventListener('click', function () { GRAPH.view = 'plan'; redraw('view'); });
+  $('dgAlt').addEventListener('click', function () { GRAPH.view = 'alternative'; redraw('view'); });
   SITE_FIELDS.forEach(function (id) { $(id).value = SITE_DEFAULTS[id]; });
   $('zoneList').innerHTML = zoneNames().map(function (z) { return '<option value="' + z + '">'; }).join('');
   $('knobsO').innerHTML = buildKnobs('o_', DEF_O);
