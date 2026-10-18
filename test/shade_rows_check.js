@@ -182,5 +182,15 @@ check('offset 90: true azimuth unchanged', sK90.az - sK0.az, 0, 1e-12);
 check('offset 360 is the same as 0', C.sunPosition(N, 12, Object.assign({}, S0, { trueNorthOffset: 360 })).s[0], sK0.s[0], 1e-12);
 ok('offset 90: the day energy on the layout changes', Math.abs(C.daily(sO, N, { site: Object.assign({}, S0, { trueNorthOffset: 90 }) }).kwh - eO.kwh) > 1e-6);
 
+// The per-step output series (kW at each quarter hour): its sum times the step is the day's output, the same as the day total
+// times the output factor (rating over 1000 times module area, times the system factor).
+{
+  const e = C.daily(sO, N, { rating: 500, sf: 0.85 });
+  ok('series: 96 quarter hours', e.series.length === 96);
+  check('series: sum times the step equals the day output, kWh', e.series.reduce((a, b) => a + b, 0) * 0.25,
+    e.kwh * 500 / (1000 * C.MOD_AREA_M2) * 0.85, 1e-6);
+  ok('series: no output at midnight', e.series[0] === 0);
+  ok('series: without a rating there is no series', C.daily(sO, N).series.every(v => v === null));
+}
 console.log(fails ? fails + ' check(s) failed' : 'all checks passed');
 process.exitCode = fails ? 1 : 0;

@@ -66,7 +66,8 @@ const defaults = {
   scLoadText: {}, scStatus: {}, cmp: {},
   tip: { style: {}, offsetWidth: 200 },
   cO: { width: 640, height: 460 }, cA: { width: 640, height: 460 },
-  capO: {}, capA: {}, timeLabel: {}, dateLabel: {}, sum: {}, grp: {}, mticks: {}, vticks: {}
+  capO: {}, capA: {}, timeLabel: {}, dateLabel: {}, sum: {}, grp: {}, mticks: {}, vticks: {},
+  gr: { width: 640, height: 130 }, grPlan: {}, grAlt: {}, grTitle: {}, grUse: {}
 };
 for (const [pre, base] of [['o_', BASE_O], ['a_', BASE_A]]) {
   defaults[pre + 'all_dx'] = { value: '0' };
@@ -80,7 +81,13 @@ for (const [pre, base] of [['o_', BASE_O], ['a_', BASE_A]]) {
     defaults[pre + g + '_right'] = { value: String(RIGHT[g]) };
     defaults[pre + g + '_up'] = { value: String(UP[g]) };
     if (DNS.indexOf(g) >= 0) defaults[pre + g + '_dz'] = { value: '0' };
+    // The slider over each number box: the page keeps the two in step (a drag sets the number box and then its slider).
+    for (const k of ['base', 'tilt', 'gap', 'right', 'up'].concat(DNS.indexOf(g) >= 0 ? ['dz'] : [])) {
+      defaults[pre + g + '_' + k + '_sl'] = {};
+    }
   }
+  defaults[pre + 'all_dx_sl'] = {};
+  defaults[pre + 'all_dy_sl'] = {};
 }
 for (let k = 0; k < 5; k++) {
   defaults['o' + k] = { width: 300, height: 220 };
@@ -136,7 +143,7 @@ const onlySide = (rows, all) => Object.assign({ rows: rows }, all);
 const rowsOf = fn => { const o = {}; ROWS.forEach(g => { o[g] = fn(g); }); return o; };
 const SITE = { rise: '5', wallh: '3', walldx: '1.3', alb: '0.4', bif: '0.7', rating: '500', sf: '0.85', cap: '10', meas: 'local' };
 const loadRaw = obj => { elements.scText.value = 'var ARRAY_SCENARIO = ' + JSON.stringify(obj) + ';'; fire('scLoadText', 'click'); flush(); };
-const LOOMIS_YEAR = 'Year, kWh: original 40,437 · alternative 41,087';
+const LOOMIS_YEAR = 'Year, kWh: plan 40,437 · alternative 41,087';
 
 (async () => {
   const t0 = Date.now();
@@ -434,6 +441,39 @@ const LOOMIS_YEAR = 'Year, kWh: original 40,437 · alternative 41,087';
   setVal('wallh', '0'); fire('wallh', 'change');
   expectEq('wall off: alternative modules unchanged', capA(), '44');
   expectEq('summary table: header plus 9 rows', (elements.sum.innerHTML.match(/<tr>/g) || []).length, 10);
+
+  // The plan label, the 5 am start, the strip with each time's plan render above its alternative render, and the graph.
+  expectEq('the plan view is titled Plan', elements.capO.textContent.startsWith('Plan: '), true);
+  expectEq('the time slider starts at 5 am and ends at 9 pm', /id="time" type="range" min="5" max="21"/.test(html), true);
+  expectEq('the time labels run every four hours from 5 am', elements.vticks.innerHTML,
+    '<span>5 am</span><span>9 am</span><span>1 pm</span><span>5 pm</span><span>9 pm</span>');
+  expectEq('each time pairs the plan render above the alternative render',
+    [0, 1, 2, 3, 4].every(k => new RegExp('<div class="pair"><canvas id="o' + k + '"[^>]*><\\/canvas><canvas id="a' + k + '"').test(html)), true);
+  expectEq('the graph title names the layout and the day total',
+    /^Projected output, kW · Plan · day total [\d.]+ kWh$/.test(elements.grTitle.textContent), true);
+  expectEq('the graph day total matches the summary', /day total ([\d.]+) kWh/.exec(elements.grTitle.textContent)[1],
+    summaryRow('Day: estimated output').original);
+  expectEq('the use line waits for imported data', elements.grUse.textContent, 'use, kW: not imported yet');
+  expectEq('the graph is labelled on the slider scale', elements.gr._ctx.__texts.some(t => t.text === '1 pm'), true);
+  fire('grAlt', 'click');
+  expectEq('the graph switches to the alternative',
+    /· Alternative · day total/.test(elements.grTitle.textContent) && elements.grAlt.classList.contains('on') && !elements.grPlan.classList.contains('on'), true);
+  fire('grPlan', 'click');
+  expectEq('and back to the plan', /· Plan · day total/.test(elements.grTitle.textContent) && elements.grPlan.classList.contains('on'), true);
+
+  // Dragging a row: press on the front-most module and move the pointer across the ground. The row's right and up follow the
+  // pointer to 0.1 ft, and moving back returns them.
+  const nearestHit = elements.cO._hits.reduce((a, b) => (b.z < a.z ? b : a));
+  const dragGroup = nearestHit.group, rIn = elements['o_' + dragGroup + '_right'], uIn = elements['o_' + dragGroup + '_up'];
+  const mid = nearestHit.pts.reduce((a, p) => [a[0] + p[0] / 4, a[1] + p[1] / 4], [0, 0]);
+  const r0 = rIn.value, u0 = uIn.value;
+  fireEv('cO', 'pointerdown', { clientX: mid[0], clientY: mid[1], pointerId: 1 });
+  fireEv('cO', 'pointermove', { clientX: mid[0] + 25, clientY: mid[1] - 12, pointerId: 1 });
+  expectEq('dragging a module moves its row (' + dragGroup + ')', rIn.value !== r0 || uIn.value !== u0, true);
+  expectEq('the dragged values are to 0.1 ft', [rIn.value, uIn.value].every(v => /^-?\d+(\.\d)?$/.test(v)), true);
+  fireEv('cO', 'pointermove', { clientX: mid[0], clientY: mid[1], pointerId: 1 });
+  fireEv('cO', 'pointerup', { clientX: mid[0], clientY: mid[1], pointerId: 1 });
+  expectEq('moving back returns the row to where it was', rIn.value === r0 && uIn.value === u0, true);
 
   console.log(fails ? fails + ' check(s) failed' : 'all checks passed');
   process.exitCode = fails ? 1 : 0;

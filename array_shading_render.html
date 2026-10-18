@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Array shading: original vs alternative</title>
+<title>Array shading: plan vs alternative</title>
 <style>
 :root{--ink:#1d2430;--muted:#5b6472;--line:#d5dae1;--bg:#f6f7f9;--accent:#2f6fb0}
 *{box-sizing:border-box}
@@ -56,6 +56,7 @@ th{font-weight:600;color:var(--muted)}
 .card.t{padding:0;overflow-x:auto;margin-bottom:10px}
 .strip{display:grid;grid-template-columns:repeat(5,1fr);gap:8px;margin-bottom:8px}
 .strip canvas{border:1px solid var(--line)}
+.pair{display:flex;flex-direction:column;gap:6px;min-width:0}
 .note{font-size:12px;color:var(--muted);line-height:1.5;margin-top:10px}
 table.cmp{font-size:12px;width:auto;margin-top:6px}
 table.cmp th,table.cmp td{padding:3px 8px;border-bottom:1px solid var(--line);text-align:right}
@@ -95,6 +96,20 @@ h1 .info{width:20px;height:20px;font-size:12px;margin-left:8px}
 .rowbox .bhead{padding:5px 8px}
 .rowbox .btitle{font-size:13px}
 .rowbox input[type=checkbox]{margin:0}
+/* Geometry rows, dense: one line per row on a wide screen, with the column names once above them. */
+.rowhead,.rowbox{display:grid;grid-template-columns:220px minmax(0,1fr);gap:0 10px;align-items:center}
+.rowhead{font-size:11px;color:var(--muted);padding:2px 10px 3px}
+.rowbox{margin:0 0 3px;padding:0}
+.rowbox > .bhead{border-bottom:0;padding:4px 8px;min-width:0}
+.rowbox > .bhead .btitle{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.rowbox > .bbody{padding:2px 8px 2px 0;min-width:0}
+.rowbox .fields,.rowhead .fields{display:grid;grid-template-columns:70px repeat(6,minmax(0,1fr));gap:0 8px;align-items:center}
+.rowhead .fields span{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.rowbox .fld{min-width:0}
+.rowbox .fld > .cl{display:none}
+.rowbox .kc{display:flex;flex-direction:row;align-items:center;gap:4px;min-width:0}
+.rowbox .kc input.kr{flex:1 1 0;min-width:28px;width:auto;margin:0}
+.rowbox .kc input[type=number]{flex:0 0 54px;width:54px;font-size:12px;padding:2px 3px}
 .season{color:var(--accent);font-weight:600;font-size:13px}
 .seasons{position:relative;height:34px;margin-top:2px}
 .seasons span{position:absolute;top:0;transform:translateX(-50%);font-size:10px;line-height:1.2;color:var(--muted);text-align:center;white-space:nowrap}
@@ -103,16 +118,34 @@ h1 .info{width:20px;height:20px;font-size:12px;margin-left:8px}
 .seasons span.dec::before{background:var(--accent);width:2px;height:7px}
 .seasons span.right{transform:translateX(-100%)}
 .modinfo{margin:0 0 8px}
+.grwrap{margin-top:8px}
+.grhead{display:flex;flex-wrap:wrap;align-items:center;gap:4px 6px;margin:0 0 4px}
+.grhead .grtitle{flex:1 1 220px;min-width:0;font-size:12px;font-weight:600;color:var(--ink);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.grhead button{font-size:12px;padding:2px 8px}
+#gr{height:130px;background:#fff;border:1px solid var(--line);border-radius:6px;cursor:default;touch-action:pan-y}
+.grlegend{display:flex;flex-wrap:wrap;gap:4px 14px;font-size:12px;color:var(--muted);margin-top:4px}
 @media (max-width:899px){
   .ticks{height:auto;display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:6px 2px;margin-top:6px}
   .ticks .mt{position:static;transform:none;font-size:11px}
+}
+@media (max-width:899px){
+  .rowhead{display:none}
+  .rowbox{display:block;margin:0 0 8px}
+  .rowbox > .bhead{border-bottom:1px solid var(--line);padding:5px 8px}
+  .rowbox > .bbody{padding:8px 10px}
+  .rowbox .fields{grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:8px 10px}
+  .rowbox .fld > .cl{display:block;font-size:12px;color:var(--muted)}
+  .rowbox .fld.blank{display:none}
+  .rowbox .kc{flex-direction:column;align-items:stretch;gap:2px}
+  .rowbox .kc input.kr{width:100%}
+  .rowbox .kc input[type=number]{width:100%;flex:none}
 }
 </style>
 </head>
 <body>
 <main>
-<h1>Array shading: original vs alternative <button class="info" type="button" data-help="about" aria-label="Help: about this render">i</button></h1>
-<p class="lead">Original and alternative bifacial ground-mount layouts: sun and shade by time of day, and clear-sky output by day, month, and year. Drag a view to orbit it and scroll to zoom. Tap or hover an (i) for help.</p>
+<h1>Array shading: plan vs alternative <button class="info" type="button" data-help="about" aria-label="Help: about this render">i</button></h1>
+<p class="lead">Plan and alternative bifacial ground-mount layouts: sun and shade by time of day, and clear-sky output by day, month, and year. Drag a row's modules to move that row; drag elsewhere in a view to orbit it, and scroll to zoom. Tap or hover an (i) for help.</p>
 
 <fieldset class="box" id="boxScen">
 <legend><button class="tog" type="button" data-tog="boxScen"></button>Scenario: save or load parameters and summary results (.js) <button class="info" type="button" data-help="scenario" aria-label="Help: scenario">i</button></legend>
@@ -165,19 +198,25 @@ h1 .info{width:20px;height:20px;font-size:12px;margin-left:8px}
 
 <div class="stage" id="stage">
 <section class="box ctrl" id="ctrlO">
-<div class="bhead"><button class="tog" type="button" data-tog="ctrlO"></button><span class="btitle">Original: rows (defaults = as drawn)</span><button class="info" type="button" data-help="rows" aria-label="Help: rows">i</button></div>
+<div class="bhead"><button class="tog" type="button" data-tog="ctrlO"></button><span class="btitle">Plan: rows (defaults = as drawn)</span><button class="info" type="button" data-help="rows" aria-label="Help: rows">i</button></div>
 <div class="bbody"><p class="note modinfo" id="modO"></p><div id="knobsO"></div></div>
 </section>
 <section class="box view" id="boxO">
-<div class="bhead"><button class="tog" type="button" data-tog="boxO"></button><h2 class="btitle" id="capO">Original</h2></div>
+<div class="bhead"><button class="tog" type="button" data-tog="boxO"></button><h2 class="btitle" id="capO">Plan</h2></div>
 <div class="bbody"><canvas id="cO" width="640" height="460"></canvas></div>
 </section>
 <section class="box timebox" id="boxT">
 <div class="bhead"><button class="tog" type="button" data-tog="boxT"></button><span class="btitle">Time of day</span><button class="info" type="button" data-help="time" aria-label="Help: time of day">i</button></div>
 <div class="bbody"><div class="vwrap">
 <div class="vticks" id="vticks"></div>
-<div class="vtrack"><input id="time" type="range" min="6" max="21" step="0.25" value="9"></div>
-</div></div>
+<div class="vtrack"><input id="time" type="range" min="5" max="21" step="0.25" value="9"></div>
+</div>
+<div class="grwrap">
+<div class="grhead"><span class="grtitle" id="grTitle"></span><button class="grbtn on" id="grPlan" type="button">Plan</button><button class="grbtn" id="grAlt" type="button">Alternative</button><button class="info" type="button" data-help="graph" aria-label="Help: projected output graph">i</button></div>
+<canvas id="gr" height="130"></canvas>
+<div class="grlegend"><span><i class="sw" style="background:#2f6fb0"></i>projected output, kW</span><span><i class="sw" style="background:#c0502d"></i><span id="grUse"></span></span></div>
+</div>
+</div>
 </section>
 <section class="box daybox" id="boxDay">
 <div class="bhead"><button class="tog" type="button" data-tog="boxDay"></button><span class="dlabel btitle" id="dateLabel"></span><span class="season" id="seasonLabel"></span><span class="ylabel" id="yearLabel"></span><button class="info" type="button" data-help="day" aria-label="Help: monthly totals">i</button></div>
@@ -216,10 +255,11 @@ h1 .info{width:20px;height:20px;font-size:12px;margin-left:8px}
 <div class="bhead"><button class="tog" type="button" data-tog="boxStrip"></button><span class="btitle">Same date at five solar times</span></div>
 <div class="bbody">
 <div class="strip">
-<canvas id="o0" width="300" height="220"></canvas><canvas id="o1" width="300" height="220"></canvas><canvas id="o2" width="300" height="220"></canvas><canvas id="o3" width="300" height="220"></canvas><canvas id="o4" width="300" height="220"></canvas>
-</div>
-<div class="strip">
-<canvas id="a0" width="300" height="220"></canvas><canvas id="a1" width="300" height="220"></canvas><canvas id="a2" width="300" height="220"></canvas><canvas id="a3" width="300" height="220"></canvas><canvas id="a4" width="300" height="220"></canvas>
+<div class="pair"><canvas id="o0" width="300" height="220"></canvas><canvas id="a0" width="300" height="220"></canvas></div>
+<div class="pair"><canvas id="o1" width="300" height="220"></canvas><canvas id="a1" width="300" height="220"></canvas></div>
+<div class="pair"><canvas id="o2" width="300" height="220"></canvas><canvas id="a2" width="300" height="220"></canvas></div>
+<div class="pair"><canvas id="o3" width="300" height="220"></canvas><canvas id="a3" width="300" height="220"></canvas></div>
+<div class="pair"><canvas id="o4" width="300" height="220"></canvas><canvas id="a4" width="300" height="220"></canvas></div>
 </div>
 </div>
 </section>
@@ -663,13 +703,16 @@ var CORE = (function () {
     var alb = (opt && isFinite(opt.albedo)) ? opt.albedo : 0.40;
     var bif = (opt && isFinite(opt.bif)) ? opt.bif : 0.70;
     var site = (opt && opt.site) || DEFAULT_SITE;
-    var dt = 0.25, cap = 0, rcap = 0, pot = 0, g = {}, perF = [], perR = [];
+    // Output per W/m2 of irradiance on the array is rating/1000 x system factor (the page's output factor). The series is
+    // the array's output in kW at each step, so its sum times the step is the day's output in kWh. Null without a rating.
+    var pf = (opt && isFinite(opt.rating) && isFinite(opt.sf)) ? opt.rating / 1000 * opt.sf : null;
+    var dt = 0.25, cap = 0, rcap = 0, pot = 0, g = {}, perF = [], perR = [], series = [];
     GROUPS.forEach(function (k) { g[k] = { e: 0, pot: 0 }; });
     sc.mods.forEach(function () { perF.push(0); perR.push(0); });
     for (var h = 0; h < 24; h += dt) {
       var sun = sunPosition(N, h, site);
-      if (sun.alt <= 0) continue;
-      var T = skyTerms(sun), sh = frameShade(sc, sun.s), G = groundReflect(sc, sc.gh, sun, T, alb);
+      if (sun.alt <= 0) { series.push(pf === null ? null : 0); continue; }
+      var T = skyTerms(sun), sh = frameShade(sc, sun.s), G = groundReflect(sc, sc.gh, sun, T, alb), sumF = 0;
       for (var m = 0; m < sc.mods.length; m++) {
         var M = sc.mods[m];
         var cosb = Math.abs(M.n[2]), dA = dt * MOD_AREA_M2;
@@ -681,9 +724,11 @@ var CORE = (function () {
         perF[m] += fr[0] * dA / 1000; perR[m] += fr[1] * dA / 1000;
         pot += (frontP + rearP) * dA;
         g[M.group].e += (fr[0] + fr[1]) * dA; g[M.group].pot += (frontP + rearP) * dA;
+        sumF += fr[0] + fr[1];
       }
+      series.push(pf === null ? null : sumF * pf / 1000);
     }
-    return { kwh: cap / 1000, rearKwh: rcap / 1000, potKwh: pot / 1000, groups: g, perF: perF, perR: perR };
+    return { kwh: cap / 1000, rearKwh: rcap / 1000, potKwh: pot / 1000, groups: g, perF: perF, perR: perR, series: series };
   }
 
   return {
@@ -776,11 +821,20 @@ if (typeof document !== 'undefined') {
     }
   }
   function tog(id) { return '<button class="tog" type="button" data-tog="' + id + '"></button>'; }
-  function fld(label, html) { return '<div class="fld"><span>' + label + '</span>' + html + '</div>'; }
+  function fld(label, html) { return '<div class="fld"><span class="cl">' + label + '</span>' + html + '</div>'; }
   // Each row is a box: its On box and arrow in the header, and its settings in the body. A row that starts off is collapsed.
   function buildKnobs(prefix, defs) {
-    var h = '<section class="box rowbox" id="rm_' + prefix + '"><div class="bhead">' + tog('rm_' + prefix) +
+    // The column names, once above the rows on a wide screen (each with its range as a tooltip). Each row uses the same grid,
+    // and a blank cell keeps a column empty where a row has none (the height difference on east-west rows).
+    var blank = '<div class="fld blank"></div>';
+    var h = '<div class="rowhead"><span>Row</span><div class="fields">' +
+      '<span title="Panels in the row">Panels</span><span title="Base: lowest edge above grade, 0 to 15 ft">Base, ft</span>' +
+      '<span title="Tilt, -90 to 90 degrees">Tilt, °</span><span title="Height difference, first to last module, 0 to 10 ft (north and south rows)">Height diff, ft</span>' +
+      '<span title="Gap between modules, 0 to 24 in">Gap, in</span><span title="Right (east) from 0,0, 0 to 50 ft">Right, ft</span>' +
+      '<span title="Up (north) from 0,0, 0 to 50 ft">Up, ft</span></div></div>' +
+      '<section class="box rowbox" id="rm_' + prefix + '"><div class="bhead">' + tog('rm_' + prefix) +
       '<span class="btitle">All rows, move together</span></div><div class="bbody fields">' +
+      blank + blank + blank + blank + blank +
       fld('Right (+E), ft (-10 to 10)', knobCell(prefix + 'all_dx', 0, KNOB_RANGES.move)) +
       fld('Up (+N), ft (-10 to 10)', knobCell(prefix + 'all_dy', 0, KNOB_RANGES.move)) + '</div></section>';
     ROWS.forEach(function (r) {
@@ -791,7 +845,7 @@ if (typeof document !== 'undefined') {
         fld('Panels', '<input type="number" min="0" step="1" id="' + prefix + r.g + '_n" value="' + d.n + '">') +
         fld('Base, ft (0 to 15)', knobCell(prefix + r.g + '_base', d.base, KNOB_RANGES.base)) +
         fld('Tilt, degrees (-90 to 90)', knobCell(prefix + r.g + '_tilt', d.tilt, KNOB_RANGES.tilt)) +
-        (r.ns ? fld('Height difference, ft (0 to 10)', knobCell(prefix + r.g + '_dz', d.dz, KNOB_RANGES.dz)) : '') +
+        (r.ns ? fld('Height difference, ft (0 to 10)', knobCell(prefix + r.g + '_dz', d.dz, KNOB_RANGES.dz)) : blank) +
         fld('Gap, in (0 to 24)', knobCell(prefix + r.g + '_gap', d.gap, KNOB_RANGES.gap)) +
         fld('Right (east) from 0,0, ft (0 to 50)', knobCell(prefix + r.g + '_right', d.right, KNOB_RANGES.pos)) +
         fld('Up (north) from 0,0, ft (0 to 50)', knobCell(prefix + r.g + '_up', d.up, KNOB_RANGES.pos)) +
@@ -845,13 +899,14 @@ if (typeof document !== 'undefined') {
   // Help text, shown from the (i) buttons: on hover with a mouse, and on a click or tap. A click again, Escape, or a click
   // elsewhere closes a pinned popup.
   var HELP = {
-    about: "Top: the original, with rows as drawn at the defaults (44 modules). Below it: the alternative at its defaults (inner rows 2 ft above the outer rows, north row with them, south row kept). Each row has an On box, a panel count, and sliders for base, tilt, gap, and its position on graph paper: right (east) and up (north) from the origin 0,0 at the south-west corner of the sketch, 0 to 50 ft, with the defaults at the baseline locations. North and south rows also take a height difference. The inner north and south rows are off by default. The sun path comes from the location, so the same page serves another site: set the location, the site inputs, and the rows, then save a scenario. Hover a panel for its front and back estimated output. The line under the date and time on each view gives the array's output now and for the selected day. Red outline = module top above the height cap. Gold = sunlit, slate = shaded. Drag a view to orbit it and scroll to zoom. Each box has an arrow to collapse it. Collapsing a view hides it and its controls.",
+    about: "Top: the plan, with rows as drawn at the defaults (44 modules). Below it: the alternative at its defaults (inner rows 2 ft above the outer rows, north row with them, south row kept). Each row has an On box, a panel count, and sliders for base, tilt, gap, and its position on graph paper: right (east) and up (north) from the origin 0,0 at the south-west corner of the sketch, 0 to 50 ft, with the defaults at the baseline locations. North and south rows also take a height difference. The inner north and south rows are off by default. The sun path comes from the location, so the same page serves another site: set the location, the site inputs, and the rows, then save a scenario. Hover a panel for its front and back estimated output. The line under the date and time on each view gives the array's output now and for the selected day. Red outline = module top above the height cap. Gold = sunlit, slate = shaded. Drag a row's modules to move that row; drag elsewhere in a view to orbit it, and scroll to zoom. Each box has an arrow to collapse it. Collapsing a view hides it and its controls.",
     scenario: "Save writes a .js file with the location, time zone, true north offset, the parameters, and the summary results. Load reads a file back, or paste its text into the box. Files from versions 1 to 7 still load. The comparison shows the saved results next to the current ones.",
     location: "Latitude and longitude as map apps show them, so south and west are negative. Changing either one looks up the time zone, which sets the clock labels and daylight time; the lookup sends only those two numbers to open-meteo.com. You can also type a zone or pick one from the list, which works offline. The zone is saved in each scenario file.",
     north: "The true north offset is the clockwise angle from graph north (the sketch's up) to true north. 0 means the sketch is north-up. Each view's rose shows true north. Turn the rose with its two arrows (15 degrees a click, 1 with shift), or type the offset here. The offset is saved with the scenario.",
     site: "Ground albedo (0.40) is a placeholder; set it for your surface. Bifaciality scales the rear face. Output = irradiance × rating ÷ 1000 × system factor, so the rating is the front STC power over 2.205 m² (22.7% at 500 W). The system factor (0.85) is a placeholder for temperature, soiling, inverter, and wiring losses. The height cap is checked two ways: from the grade under each row, or from the lowest grade on the site. Set the site rise to 0 to remove the slope. The height cap and setbacks are inputs; check them against the local code.",
-    rows: "Base = lowest edge above grade (north and south rows: at the row's middle). Height difference = first to last module, + = east higher. Gap = space between modules in a row, in inches. Panels = modules in the row. Right and up place each row's base corner on graph paper, measured from the origin 0,0 at the south-west corner of the sketch; the defaults are the baseline locations. Panels and gap extend an east-west row north, and a north-south row east, from that corner. Turn the inner north and south rows on to try four rows in the north-south direction, with the east-west rows off. All rows moves every row together, right (+E) and up (+N). Each setting has a slider over its number box, with the ranges in the headings; type a value in the box for anything outside a slider's range.",
-    time: "Local clock time in the time zone under Location, with that zone's daylight time for 2026. The slider runs from 6 am (left) to 9 pm (right). The sun is computed from apparent solar time, so the time zone changes the clock labels, not the energy.",
+    rows: "Base = lowest edge above grade (north and south rows: at the row's middle). Height difference = first to last module, + = east higher. Gap = space between modules in a row, in inches. Panels = modules in the row. Right and up place each row's base corner on graph paper, measured from the origin 0,0 at the south-west corner of the sketch; the defaults are the baseline locations. Panels and gap extend an east-west row north, and a north-south row east, from that corner. Turn the inner north and south rows on to try four rows in the north-south direction, with the east-west rows off. All rows moves every row together, right (+E) and up (+N). Each setting has a slider beside its number box. On a wide screen the column names sit above the rows, and each name's tooltip gives its range; type a value in a box for anything outside a slider's range. Drag a row's modules in either view to move that row: its right and up follow the pointer, to 0.1 ft.",
+    time: "Local clock time in the time zone under Location, with that zone's daylight time for 2026. The slider runs from 5 am (left) to 9 pm (right), which covers sunrise and sunset on June 21 at the default site. The sun is computed from apparent solar time, so the time zone changes the clock labels, not the energy.",
+    graph: "The projected output of the selected layout for this day, in kW at each clock time, on the same scale as the slider (5 am to 9 pm). It comes from the same clear-sky model as the day total, so the area under the curve is the day's output in kWh. Plan and Alternative choose the layout. The orange use line is for imported use data on the same clock; no use data is imported yet.",
     day: "Monthly and yearly totals use the 15th of each month, scaled by the days in that month; checked at the default site against every day of the year, each month is within 2% and the year within 0.1%. The markers show the equinoxes and solstices for 2026; an equinox can fall a day earlier or later by time zone.",
     method: "Geometry: row positions are read from your sketch, so measure them to confirm. Each row's base corner is placed from the origin 0,0 on graph paper (east and north positive); the baseline locations are the defaults. Base elevation is the lowest edge above local grade; for the north and south rows it is at the middle of the row, and the height difference runs from the first module to the last, each module level across its own width. Shading uses the sun path for the location, the east wall (if on), and the modules only: no trees, house, or neighbor structures. True north is the sketch's up turned by the true north offset (0 by default), and the sun path follows it. Output is a clear-sky estimate: direct beam, sky diffuse, and ground-reflected light on each face, with the back face scaled by the bifaciality input. Ground reflection is ray-traced from each face to the ground it sees; each ground point is tested for direct sun against the array and the wall, and the sky diffuse reaching that ground is not reduced by the array."
   };
@@ -892,6 +947,7 @@ if (typeof document !== 'undefined') {
   if (typeof window !== 'undefined') {
     window.addEventListener('scroll', renderHelp, true);
     window.addEventListener('resize', renderHelp);
+    window.addEventListener('resize', function () { redraw('view'); });   // the graph is drawn at the slider's width
   }
   function num(id, def) {
     var v = parseFloat($(id).value);
@@ -1070,7 +1126,7 @@ if (typeof document !== 'undefined') {
       else { fill = mix(shade[idx].frac); }
       var topv = info.meas === 'lowest' ? M.topZ : M.topLocal;
       if (topv > info.cap + 1e-6) { stroke = '#d62828'; lw = 2.2; }
-      objs.push({ pts: pts, depth: depth, fill: fill, stroke: stroke, lw: lw, idx: idx });
+      objs.push({ pts: pts, depth: depth, fill: fill, stroke: stroke, lw: lw, idx: idx, group: M.group });
     });
     if (sc.wall.on) {
       var w = sc.wall;
@@ -1093,7 +1149,8 @@ if (typeof document !== 'undefined') {
     objs.forEach(function (o) { fillPoly(ctx, o.pts, o.fill, o.stroke, o.lw); });
     // Hit-test data for hover: module quads in canvas pixels, with depth; and the output shown on hover.
     canvas._hits = objs.filter(function (o) { return o.idx !== undefined; })
-                       .map(function (o) { return { idx: o.idx, pts: o.pts, z: o.depth }; });
+                       .map(function (o) { return { idx: o.idx, pts: o.pts, z: o.depth, group: o.group }; });
+    canvas._view = V; canvas._gz = gz;   // kept for dragging a row: a canvas point maps back to the ground through these
     canvas._hv = info.hv || null;
 
     canvas._roseHits = drawRose(ctx, V, gz, H, info.north, H > 300);
@@ -1269,19 +1326,19 @@ if (typeof document !== 'undefined') {
       ['Day: unobstructed output, kWh (front + rear, clear sky)', v.potentialKwh.original.toFixed(1), v.potentialKwh.alternative.toFixed(1)],
       ['Day: estimated output, kWh (front + rear)', v.outputKwh.original.toFixed(1), v.outputKwh.alternative.toFixed(1)],
       ['Day: rear side, % of output', pct(v.rearPct.original), pct(v.rearPct.alternative)],
-      ['Day: output, % of original unobstructed potential', pct(v.outputPctOfOriginalPotential.original), pct(v.outputPctOfOriginalPotential.alternative)],
+      ['Day: output, % of plan unobstructed potential', pct(v.outputPctOfOriginalPotential.original), pct(v.outputPctOfOriginalPotential.alternative)],
       ['Day: output, % of its own unobstructed potential', pct(v.ownPotentialPct.original), pct(v.ownPotentialPct.alternative)],
       ['Highest top above grade under it, ft', v.maxTopLocalFt.original.toFixed(1), v.maxTopLocalFt.alternative.toFixed(1)],
       ['Highest top above lowest grade on site, ft', v.maxTopLowestFt.original.toFixed(1), v.maxTopLowestFt.alternative.toFixed(1)],
       ['Modules over the ' + prm.cap + ' ft cap (measured from ' + measLabel + ')', v.modulesOverCap.original, v.modulesOverCap.alternative]
     ];
-    var h = '<tr><th>' + D.label + ' summary</th><th>Original</th><th>Alternative</th></tr>';
+    var h = '<tr><th>' + D.label + ' summary</th><th>Plan</th><th>Alternative</th></tr>';
     rows.forEach(function (r) { h += '<tr><td>' + r[0] + '</td><td>' + r[1] + '</td><td>' + r[2] + '</td></tr>'; });
     $('sum').innerHTML = h;
   }
 
   function renderGroups(sc, en, shO, shA) {
-    var h = '<tr><th>Row</th><th>Original: modules</th><th>Original: sunlit now</th><th>Original: day</th>' +
+    var h = '<tr><th>Row</th><th>Plan: modules</th><th>Plan: sunlit now</th><th>Plan: day</th>' +
             '<th>Alternative: modules</th><th>Alternative: sunlit now</th><th>Alternative: day</th></tr>';
     C.GROUPS.forEach(function (g) {
       var no = sc.original.mods.filter(function (M) { return M.group === g; }).length;
@@ -1311,7 +1368,7 @@ if (typeof document !== 'undefined') {
     }
     $('mticks').innerHTML = h;
     var all = st.done;
-    $('yearLabel').innerHTML = 'Year, kWh: <span class="mo">original ' + (all ? fmtK(sumArr(st.original)) : '…') +
+    $('yearLabel').innerHTML = 'Year, kWh: <span class="mo">plan ' + (all ? fmtK(sumArr(st.original)) : '…') +
       '</span> · <span class="mp">alternative ' + (all ? fmtK(sumArr(st.alternative)) : '…') + '</span>';
   }
   function requestYear(prm, sc) {
@@ -1541,7 +1598,7 @@ if (typeof document !== 'undefined') {
     var now = currentResults(prm, sc, D, dd);
     var sameDay = saved.summary.day.N === D.N, diffs = 0;
     function fmt(x, dec) { return (x === null || x === undefined || !isFinite(x)) ? '—' : x.toFixed(dec); }
-    var h = '<table class="cmp"><tr><th>Item</th><th>Original, saved</th><th>Original, now</th>' +
+    var h = '<table class="cmp"><tr><th>Item</th><th>Plan, saved</th><th>Plan, now</th>' +
             '<th>Alternative, saved</th><th>Alternative, now</th></tr>';
     function addRow(label, cells) {
       h += '<tr><td>' + label + '</td>';
@@ -1599,18 +1656,19 @@ if (typeof document !== 'undefined') {
     var outO = nowOutput(sc.original, sun, shO, prm), outA = nowOutput(sc.alternative, sun, shA, prm);
     var info = { cap: prm.cap, meas: prm.meas, north: prm.site.trueNorthOffset };
     drawScene($('cO'), sc.original, sun, shO, cam, mergeInfo(info, {
-      title: 'Original', sub: when + ' · ' + sunTxt, count: sc.original.mods.length + ' modules',
+      title: 'Plan', sub: when + ' · ' + sunTxt, count: sc.original.mods.length + ' modules',
       total: totalText(outO, enO, prm, D.label), hv: hoverData(outO, enO, prm, D.label)
     }));
     drawScene($('cA'), sc.alternative, sun, shA, cam, mergeInfo(info, {
       title: 'Alternative', sub: when + ' · ' + sunTxt, count: sc.alternative.mods.length + ' modules',
       total: totalText(outA, enA, prm, D.label), hv: hoverData(outA, enA, prm, D.label)
     }));
-    $('capO').textContent = 'Original: ' + sc.original.mods.length + ' modules';
+    $('capO').textContent = 'Plan: ' + sc.original.mods.length + ' modules';
     $('capA').textContent = 'Alternative: ' + sc.alternative.mods.length + ' modules';
     $('dateLabel').textContent = D.label + '   (day ' + D.N + ' of 365)';
     $('seasonLabel').textContent = seasonName(D.N);
     $('timeLabel').textContent = fmtClock(clock, D.N, prm.site) + ' · solar ' + C.solarText(solar) + ' · ' + sunTxt;
+    drawGraph(dd, prm, D, clock);
     if (mode === 'full') {
       renderSummary(sc, dd.en, D, prm);
       renderGroups(sc, dd.en, shO, shA);
@@ -1620,7 +1678,7 @@ if (typeof document !== 'undefined') {
       dd.strip.forEach(function (st, k) {
         var lab = fmtClock(st.h + off, D.N, prm.site) + ' (solar ' + C.solarText(st.h) + ')';
         drawScene($('o' + k), sc.original, st.sun, st.shO, STRIP_CAM,
-          mergeInfo(info, { title: 'Original', sub: lab, count: '', hv: hoverData(st.outO, dd.en.original, prm, D.label) }));
+          mergeInfo(info, { title: 'Plan', sub: lab, count: '', hv: hoverData(st.outO, dd.en.original, prm, D.label) }));
         drawScene($('a' + k), sc.alternative, st.sun, st.shA, STRIP_CAM,
           mergeInfo(info, { title: 'Alternative', sub: lab, count: '', hv: hoverData(st.outA, dd.en.alternative, prm, D.label) }));
       });
@@ -1633,21 +1691,77 @@ if (typeof document !== 'undefined') {
     $('trueNorthOffset').value = String(Math.round(v * 100) / 100);
     redraw('full');
   }
+  function round1(x) { return Math.round(x * 10) / 10; }
+  function setNum(id, v) { var n = $(id); n.value = String(v); syncSliderFor(n); }
+  // A pointer position in canvas pixels.
+  function canvasPoint(canvas, e) {
+    var r = canvas.getBoundingClientRect();
+    return [(e.clientX - r.left) * canvas.width / r.width, (e.clientY - r.top) * canvas.height / r.height];
+  }
+  // The row of the front-most module under a canvas point, or null.
+  function rowUnder(canvas, p) {
+    var best = null;
+    (canvas._hits || []).forEach(function (h) {
+      if (h.group && inQuad(p, h.pts) && (!best || h.z < best.z)) best = h;
+    });
+    return best ? best.group : null;
+  }
+  // The ground point (east, north) that a canvas point shows, from Newton steps off a guess. The ground is z = gz(north).
+  function groundUnder(canvas, p, guess) {
+    var V = canvas._view, gz = canvas._gz, x = guess[0], y = guess[1];
+    if (!V || !gz) return null;
+    for (var it = 0; it < 30; it++) {
+      var a0 = V.P([x, y, gz(y)]), fx = a0[0] - p[0], fy = a0[1] - p[1];
+      if (Math.abs(fx) < 0.01 && Math.abs(fy) < 0.01) break;
+      var h = 0.01, ax = V.P([x + h, y, gz(y)]), ay = V.P([x, y + h, gz(y + h)]);
+      var j11 = (ax[0] - a0[0]) / h, j12 = (ay[0] - a0[0]) / h, j21 = (ax[1] - a0[1]) / h, j22 = (ay[1] - a0[1]) / h;
+      var det = j11 * j22 - j12 * j21;
+      if (!isFinite(det) || Math.abs(det) < 1e-9) return null;
+      var dx = (j22 * fx - j12 * fy) / det, dy = (j11 * fy - j21 * fx) / det, s = Math.hypot(dx, dy);
+      if (s > 5) { dx *= 5 / s; dy *= 5 / s; }
+      x -= dx; y -= dy;
+    }
+    return isFinite(x) && isFinite(y) ? [x, y] : null;
+  }
+  // A row drag starts from the row's right and up, and from the ground point under the press.
+  function startRowDrag(canvas, group, p) {
+    var prefix = canvas.id === 'cO' ? 'o_' : 'a_', right0 = num(prefix + group + '_right', 0), up0 = num(prefix + group + '_up', 0);
+    var g0 = groundUnder(canvas, p, [right0, up0]);
+    return g0 ? { prefix: prefix, group: group, right0: right0, up0: up0, start: g0, last: g0, moved: false } : null;
+  }
+  // The row follows the pointer across the ground: its right and up move by the ground distance, to 0.1 ft.
+  function moveRow(canvas, d, p) {
+    var g = groundUnder(canvas, p, d.last);
+    if (!g) return;
+    d.last = g;
+    setNum(d.prefix + d.group + '_right', round1(d.right0 + g[0] - d.start[0]));
+    setNum(d.prefix + d.group + '_up', round1(d.up0 + g[1] - d.start[1]));
+    d.moved = true;
+    redraw('view');
+  }
   function bindCanvas(canvas) {
-    var last = null, downAt = null;
+    var last = null, downAt = null, drag = null;
     canvas.addEventListener('pointerdown', function (e) {
-      last = [e.clientX, e.clientY];
-      downAt = last.slice();
+      downAt = [e.clientX, e.clientY];
       canvas.setPointerCapture(e.pointerId);
+      // A press on a module moves that module's row; a press anywhere else orbits the view.
+      var p = canvasPoint(canvas, e), group = rowUnder(canvas, p);
+      drag = group ? startRowDrag(canvas, group, p) : null;
+      last = drag ? null : [e.clientX, e.clientY];
     });
     canvas.addEventListener('pointermove', function (e) {
-      if (!last) return;
+      if (drag) { moveRow(canvas, drag, canvasPoint(canvas, e)); return; }
+      if (!last) { canvas.style.cursor = rowUnder(canvas, canvasPoint(canvas, e)) ? 'move' : ''; return; }
       cam.az = (cam.az + (e.clientX - last[0]) * 0.4 + 360) % 360;
       cam.el = C.clamp(cam.el + (e.clientY - last[1]) * 0.25, 3, 84);
       last = [e.clientX, e.clientY];
       redraw('view');
     });
-    function end() { last = null; }
+    function end() {
+      last = null;
+      if (drag && drag.moved) redraw('full');   // the day and year totals follow the release
+      drag = null;
+    }
     canvas.addEventListener('pointerup', end);
     canvas.addEventListener('pointercancel', end);
     // A click on one of the rose's arrows turns true north. A press that moved more than a few pixels was an orbit, not a click.
@@ -1675,14 +1789,98 @@ if (typeof document !== 'undefined') {
     canvas.addEventListener('pointerleave', hideTip);
   }
 
-  // The time labels under the slider: 6 am at the left, 9 pm at the right.
+  // The time labels under the slider: every four hours, 5 am at the left and 9 pm at the right, which covers sunrise and
+  // sunset on June 21 at the default site.
+  function hourLabel(t) { return t === 12 ? '12 pm' : (t > 12 ? (t - 12) + ' pm' : t + ' am'); }
   function buildVTicks() {
     var h = '';
-    [6, 9, 12, 15, 18, 21].forEach(function (t) {
-      var lab = t === 12 ? '12 pm' : (t > 12 ? (t - 12) + ' pm' : t + ' am');
-      h += '<span>' + lab + '</span>';
-    });
+    [5, 9, 13, 17, 21].forEach(function (t) { h += '<span>' + hourLabel(t) + '</span>'; });
     $('vticks').innerHTML = h;
+  }
+  // The time-of-day graph under the slider, on the slider's own scale (the thumb's half width at each end, so a point sits
+  // under the time it belongs to). The output line is the projected output of one layout for the selected day, from the
+  // same per-step model as the day total. The use line is reserved: imported use data, an array of { t, kw } on the same
+  // clock (hours and kW), goes in GRAPH.use and is drawn in orange.
+  var GRAPH = { view: 'plan', use: null, from: 5, to: 21, pad: 8 };
+  function niceTop(v) {
+    if (!(v > 0)) return 1;
+    var p = Math.pow(10, Math.floor(Math.log(v) / Math.LN10)), f = v / p;
+    return (f <= 1 ? 1 : f <= 2 ? 2 : f <= 2.5 ? 2.5 : f <= 5 ? 5 : 10) * p;
+  }
+  // The value at clock t, interpolated between points sorted by t; null past the last point.
+  function valueAt(pts, t) {
+    for (var i = 1; i < pts.length; i++) {
+      if (pts[i].t >= t) {
+        var a = pts[i - 1], b = pts[i];
+        return a.kw + (b.t > a.t ? (t - a.t) / (b.t - a.t) : 0) * (b.kw - a.kw);
+      }
+    }
+    return pts.length && Math.abs(pts[pts.length - 1].t - t) < 0.3 ? pts[pts.length - 1].kw : null;
+  }
+  function drawGraph(dd, prm, D, clock) {
+    var cv = $('gr'), ctx = cv.getContext('2d');
+    var W = cv.clientWidth || cv.width, H = cv.clientHeight || cv.height;
+    var dpr = (typeof window !== 'undefined' && window.devicePixelRatio) || 1;
+    cv.width = Math.round(W * dpr); cv.height = Math.round(H * dpr);
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    ctx.fillStyle = '#ffffff'; ctx.fillRect(0, 0, W, H);
+    var planView = GRAPH.view === 'plan', en = dd ? dd.en[planView ? 'original' : 'alternative'] : null;
+    var shift = C.sunPosition(D.N, 12, prm.site).clock - 12;   // clock hour = solar hour + shift
+    var top = 18, base = H - 16, span = W - 2 * GRAPH.pad;
+    function X(t) { return GRAPH.pad + (t - GRAPH.from) / (GRAPH.to - GRAPH.from) * span; }
+    var out = en && en.series ? en.series.map(function (kw, i) { return { t: i * 0.25 + shift, kw: kw }; }) : [];
+    var shown = out.filter(function (p) { return p.t >= GRAPH.from && p.t <= GRAPH.to; });
+    var use = (GRAPH.use || []).filter(function (p) { return p.t >= GRAPH.from && p.t <= GRAPH.to; });
+    var peak = 0;
+    shown.concat(use).forEach(function (p) { peak = Math.max(peak, p.kw); });
+    var ymax = niceTop(peak);
+    function Y(kw) { return base - kw / ymax * (base - top); }
+    ctx.lineWidth = 1; ctx.strokeStyle = '#e3e7ed';
+    [ymax / 2, ymax].forEach(function (kw) {
+      var y = Math.round(Y(kw)) + 0.5;
+      ctx.beginPath(); ctx.moveTo(GRAPH.pad, y); ctx.lineTo(W - GRAPH.pad, y); ctx.stroke();
+    });
+    [5, 9, 13, 17, 21].forEach(function (t) {
+      var x = Math.round(X(t)) + 0.5;
+      ctx.beginPath(); ctx.moveTo(x, top); ctx.lineTo(x, base); ctx.stroke();
+    });
+    function trace(pts, color, fill) {
+      if (pts.length < 2) return;
+      function path() {
+        ctx.beginPath();
+        pts.forEach(function (p, i) { if (i === 0) ctx.moveTo(X(p.t), Y(p.kw)); else ctx.lineTo(X(p.t), Y(p.kw)); });
+      }
+      if (fill) {
+        path();
+        ctx.lineTo(X(pts[pts.length - 1].t), base); ctx.lineTo(X(pts[0].t), base); ctx.closePath();
+        ctx.fillStyle = fill; ctx.fill();
+      }
+      path(); ctx.strokeStyle = color; ctx.lineWidth = 2; ctx.stroke();
+    }
+    trace(shown, '#2f6fb0', 'rgba(47,111,176,0.12)');
+    trace(use, '#c0502d', null);
+    // The slider's time: a vertical line, a dot on the output line, and the reading.
+    var v = valueAt(shown, clock), mx = Math.round(X(clock)) + 0.5;
+    ctx.strokeStyle = '#1d2430'; ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(mx, top); ctx.lineTo(mx, base); ctx.stroke();
+    if (v !== null) { ctx.fillStyle = '#2f6fb0'; ctx.beginPath(); ctx.arc(X(clock), Y(v), 3.5, 0, 2 * Math.PI); ctx.fill(); }
+    ctx.font = '11px system-ui';
+    ctx.fillStyle = '#5b6472'; ctx.textAlign = 'left';
+    ctx.fillText(ymax + ' kW', GRAPH.pad + 2, top - 5);
+    ctx.fillStyle = '#1d2430'; ctx.textAlign = 'right';
+    ctx.fillText((planView ? 'Plan ' : 'Alternative ') + (v === null ? '—' : v.toFixed(2) + ' kW') + ' at ' +
+      fmtClock(clock, D.N, prm.site), W - GRAPH.pad, top - 5);
+    ctx.font = '10px system-ui'; ctx.fillStyle = '#5b6472';
+    [5, 9, 13, 17, 21].forEach(function (t, i) {
+      ctx.textAlign = i === 0 ? 'left' : i === 4 ? 'right' : 'center';
+      ctx.fillText(hourLabel(t), X(t), H - 3);
+    });
+    if (!en) { ctx.font = '12px system-ui'; ctx.textAlign = 'center'; ctx.fillText('updates on release', W / 2, (top + base) / 2); }
+    $('grTitle').textContent = 'Projected output, kW · ' + (planView ? 'Plan' : 'Alternative') + ' · day total ' +
+      (en ? (en.kwh * eFactor(prm)).toFixed(1) + ' kWh' : 'updates on release');
+    $('grUse').textContent = GRAPH.use ? 'use, kW: imported' : 'use, kW: not imported yet';
+    $('grPlan').classList.toggle('on', planView);
+    $('grAlt').classList.toggle('on', !planView);
   }
 
   // The time zone lookup: when the latitude or longitude changes, or the button is pressed, the zone for that location is
@@ -1743,6 +1941,8 @@ if (typeof document !== 'undefined') {
     $(id).addEventListener('input', function () { redraw('view'); });
     $(id).addEventListener('change', function () { redraw('full'); });
   });
+  $('grPlan').addEventListener('click', function () { GRAPH.view = 'plan'; redraw('view'); });
+  $('grAlt').addEventListener('click', function () { GRAPH.view = 'alternative'; redraw('view'); });
   SITE_FIELDS.forEach(function (id) { $(id).value = SITE_DEFAULTS[id]; });
   $('zoneList').innerHTML = zoneNames().map(function (z) { return '<option value="' + z + '">'; }).join('');
   $('knobsO').innerHTML = buildKnobs('o_', DEF_O);
