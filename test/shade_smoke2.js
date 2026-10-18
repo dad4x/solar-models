@@ -69,7 +69,8 @@ const defaults = {
   capO: {}, capA: {}, timeLabel: {}, dateLabel: {}, sum: {}, grp: {}, mticks: {}, vticks: {},
   gr: { width: 640, height: 130 }, grPlan: {}, grAlt: {}, grTitle: {}, grUse: {},
   dg: { width: 640, height: 130 }, dgPlan: {}, dgAlt: {}, dgTitle: {}, dgUse: {},
-  useFile: { files: [], value: '' }, useText: { value: '' }, useLoadText: {}, useClear: {}, useStatus: {}, useSum: {}
+  useFile: { files: [], value: '' }, useText: { value: '' }, useLoadText: {}, useClear: {}, useStatus: {}, useSum: {},
+  batKwh: { value: '60' }, batDis: { value: '10' }, batChg: { value: '10' }, batEff: { value: '90' }
 };
 for (const [pre, base] of [['o_', BASE_O], ['a_', BASE_A]]) {
   defaults[pre + 'all_dx'] = { value: '0' };
@@ -542,6 +543,20 @@ const LOOMIS_YEAR = 'Year, kWh: plan 40,437 · alternative 41,087';
     /<td>Nov 2026<\/td>(?:<td>[^<]*<\/td>){5}<td>2\.0<\/td><td>[\d.]+<\/td><td>2\.0<\/td><td>[\d.]+<\/td>/.test(elements.useSum.innerHTML), true);
   expectEq('the year battery: a storage figure for each layout',
     /Battery storage, kWh \(worst day\)<\/td><td>[\d.]+<\/td><td>[\d.]+<\/td>/.test(elements.useSum.innerHTML), true);
+  // The battery limits: with no battery the net with it is the net without one; a battery cuts the grid import; the day line and
+  // the time graph title carry the day's net with the battery.
+  const batNet = () => /Net with battery, kWh[^<]*<\/td><td>([+−][\d.]+)<\/td>/.exec(elements.useSum.innerHTML)[1];
+  const batNetNone = () => /Net without battery, kWh<\/td><td>([+−][\d.]+)<\/td>/.exec(elements.useSum.innerHTML)[1];
+  const batImport = () => parseFloat(/Grid import, kWh<\/td><td>([\d.]+)<\/td>/.exec(elements.useSum.innerHTML)[1]);
+  expectEq('the battery table shows its limits',
+    /With the battery \(60 kWh usable, 10 kW discharge, 10 kW charge, 90% round trip\)/.test(elements.useSum.innerHTML), true);
+  setVal('batKwh', '0'); fire('batKwh', 'change'); flush();
+  expectEq('no battery: the net with the battery is the net without one', batNet(), batNetNone());
+  const importNone = batImport();
+  setVal('batKwh', '60'); fire('batKwh', 'change'); flush();
+  expectEq('a battery cuts the grid import', batImport() <= importNone, true);
+  expectEq('the day line gives the net with the battery', /with the battery: net [+−][\d.]+ kWh plan/.test(elements.useSum.innerHTML), true);
+  expectEq('the time graph title gives the day net with the battery', /with battery, net [+−]\d+\.\d kWh/.test(elements.grTitle.textContent), true);
   expectEq('the date graph has the monthly use line', elements.dgUse.textContent, 'use, kWh per month: from the use file');
   // Hovering the date graph's line: the month under the cursor, with its output and its use, in kWh.
   const dateX = n => 8 + (n - 1) / 364 * (640 - 16);
