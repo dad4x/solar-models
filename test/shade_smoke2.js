@@ -152,7 +152,7 @@ const LOOMIS_YEAR = 'Year, kWh: plan 40,437 · alternative 41,087';
   vm.runInContext(script, ctx);
   console.log('initial redraw ok in', Date.now() - t0, 'ms');
   expectEq('date label on load', elements.dateLabel.textContent, 'Dec 21   (day 355 of 365)');
-  expectEq('monthly labels: twelve', (elements.mticks.innerHTML.match(/<span class="mt"/g) || []).length, 12);
+  expectEq('the date graph labels its months', ['Jan', 'Jun', 'Dec'].every(n => elements.dg._ctx.__texts.some(t => t.text === n)), true);
   expectEq('location loads: latitude', elements.latitude.value, '38.8');
   expectEq('location loads: longitude', elements.longitude.value, '-121.2');
   expectEq('location loads: time zone', elements.timeZone.value, 'America/Los_Angeles');
@@ -187,7 +187,7 @@ const LOOMIS_YEAR = 'Year, kWh: plan 40,437 · alternative 41,087';
   expectEq('expanding the original view shows its controls again', elements.stage.classList.contains('off-o'), false);
   // The stage order: original controls, original view, time, day, alternative view, alternative controls.
   const stageOrder = ['ctrlO', 'boxO', 'boxT', 'boxDay', 'boxA', 'ctrlA'].map(id => html.indexOf('id="' + id + '"'));
-  expectEq('time and day sliders sit between the two renders', stageOrder.every((p, i) => p > 0 && (i === 0 || p > stageOrder[i - 1])), true);
+  expectEq('the time and date graphs sit between the two renders', stageOrder.every((p, i) => p > 0 && (i === 0 || p > stageOrder[i - 1])), true);
 
   // Every (i) button in the page has its help text.
   const helpKeys = [...new Set([...html.matchAll(/data-help="(\w+)"/g)].map(m => m[1]))];
@@ -446,9 +446,9 @@ const LOOMIS_YEAR = 'Year, kWh: plan 40,437 · alternative 41,087';
 
   // The plan label, the 5 am start, the strip with each time's plan render above its alternative render, and the graph.
   expectEq('the plan view is titled Plan', elements.capO.textContent.startsWith('Plan: '), true);
-  expectEq('the time slider starts at 5 am and ends at 9 pm', /id="time" type="range" min="5" max="21"/.test(html), true);
-  expectEq('the time labels run every four hours from 5 am', elements.vticks.innerHTML,
-    '<span>5 am</span><span>9 am</span><span>1 pm</span><span>5 pm</span><span>9 pm</span>');
+  expectEq('the time cursor runs from 5 am to 9 pm', /id="time" type="range" min="5" max="21"/.test(html), true);
+  expectEq('the time graph labels every four hours from 5 am to 9 pm',
+    ['5 am', '9 am', '1 pm', '5 pm', '9 pm'].every(n => elements.gr._ctx.__texts.some(t => t.text === n)), true);
   expectEq('each time pairs the plan render above the alternative render',
     [0, 1, 2, 3, 4].every(k => new RegExp('<div class="pair"><canvas id="o' + k + '"[^>]*><\\/canvas><canvas id="a' + k + '"').test(html)), true);
   expectEq('the graph title names the layout and the day total',
@@ -494,9 +494,21 @@ const LOOMIS_YEAR = 'Year, kWh: plan 40,437 · alternative 41,087';
   expectEq('use line: 48.0 kWh on the day, with its net', /· use 48\.0 kWh · net [+−]\d+\.\d kWh/.test(useTitle), true);
   expectEq('the net is the use minus the output for the day',
     !!useNet && Math.abs((useNet[1] === '+' ? 1 : -1) * parseFloat(useNet[2]) - (48 - useOut)) < 0.11, true);
+  // The battery for net zero: with a flat 0.50 kWh a quarter hour and no output at night, the largest shortfall is 2.0 kW.
+  expectEq('the projected output line gives the battery for net zero: peak discharge and storage',
+    /battery for net zero: peak discharge 2\.0 kW, storage [\d.]+ kWh/.test(elements.grTitle.textContent), true);
   expectEq('use legend: no full month in the file yet', elements.dgUse.textContent, 'use, kWh: no full month in the file yet');
+  // Hovering the time graph's line: the quarter hour under the cursor, in kWh and kW. The stub maps x to the drawing one for one.
+  const timeX = t => 8 + (t - 5) / 16 * (640 - 16);
+  fireEv('gr', 'pointermove', { clientX: timeX(10.0), clientY: 60 });
+  expectEq('hovering the time graph gives the output and the use in kWh per 15 min',
+    /Plan output [\d.]+ kWh per 15 min \([\d.]+ kW\)/.test(elements.tip.innerHTML) &&
+    /Use 0\.50 kWh per 15 min \(2\.00 kW\)/.test(elements.tip.innerHTML), true);
+  fireEv('gr', 'pointerleave', {});
+  expectEq('leaving the time graph hides the tip', elements.tip.style.display, 'none');
   setVal('day', '265'); fire('day', 'change'); flush();   // Sep 22, 10 readings
   expectEq('a partial day shows its use, with no net', /· use 5\.0 kWh \(partial day\)/.test(elements.grTitle.textContent), true);
+  expectEq('a partial day has no battery figure', /battery/.test(elements.grTitle.textContent), false);
   setVal('day', '263'); fire('day', 'change'); flush();   // Sep 20
   const useOut20 = parseFloat(/day total ([\d.]+) kWh/.exec(elements.grTitle.textContent)[1]);
   setVal('day', '264'); fire('day', 'change'); flush();   // Sep 21
@@ -524,7 +536,24 @@ const LOOMIS_YEAR = 'Year, kWh: plan 40,437 · alternative 41,087';
   expectEq('the monthly output matches the date graph label',
     !!novRow && !!novGraph && Math.abs(parseFloat(novGraph[1].replace(/,/g, '')) - Math.round(parseFloat(novRow[1]))) <= 1, true);
   expectEq('the date graph has the monthly use line', elements.dgUse.textContent, 'use, kWh per month: from the use file');
+  // Hovering the date graph's line: the month under the cursor, with its output and its use, in kWh.
+  const dateX = n => 8 + (n - 1) / 364 * (640 - 16);
+  fireEv('dg', 'pointermove', { clientX: dateX(319), clientY: 60 });   // Nov 15
+  expectEq('hovering the date graph gives the month, its output and its use in kWh',
+    /<b>Nov<\/b><br>Plan output [\d,]+ kWh<br>Use 1,440 kWh/.test(elements.tip.innerHTML), true);
   fire('useClear', 'click');
+
+  // Dragging the cursor on a graph: the time graph sets the clock time to the quarter hour, the date graph sets the day. The stub
+  // maps x to the drawing one for one, on a 640-wide canvas with the 8 px margin.
+  const cursorX = (lo, hi, v) => 8 + (v - lo) / (hi - lo) * (640 - 16);
+  fireEv('gr', 'pointerdown', { clientX: cursorX(5, 21, 10), clientY: 60, pointerId: 1 });
+  fireEv('gr', 'pointermove', { clientX: cursorX(5, 21, 14.25), clientY: 60, pointerId: 1 });
+  fireEv('gr', 'pointerup', { clientX: cursorX(5, 21, 14.25), clientY: 60, pointerId: 1 });
+  expectEq('dragging the time cursor sets the clock to the quarter hour', elements.time.value, '14.25');
+  fireEv('dg', 'pointerdown', { clientX: cursorX(1, 365, 200), clientY: 60, pointerId: 1 });
+  fireEv('dg', 'pointerup', { clientX: cursorX(1, 365, 200), clientY: 60, pointerId: 1 });
+  expectEq('dragging the date cursor sets the day', elements.day.value, '200');
+  setVal('time', '9'); setVal('day', '355'); fire('day', 'change'); flush();
 
   // Dragging a row: press on the front-most module and move the pointer across the ground. The row's right and up follow the
   // pointer to 0.1 ft, and moving back returns them.
