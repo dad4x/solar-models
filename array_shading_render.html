@@ -946,14 +946,7 @@ if (typeof document !== 'undefined') {
                        .map(function (o) { return { idx: o.idx, pts: o.pts, z: o.depth }; });
     canvas._hv = info.hv || null;
 
-    // north arrow
-    var o0 = V.P([22, 22, gz(22)]), o1 = V.P([22, 40, gz(40)]);
-    var dx = o1[0] - o0[0], dy = o1[1] - o0[1], dl = Math.sqrt(dx * dx + dy * dy) || 1;
-    var bx = 34, by = H - 34;
-    ctx.strokeStyle = '#1d2430'; ctx.fillStyle = '#1d2430'; ctx.lineWidth = 1.5;
-    ctx.beginPath(); ctx.moveTo(bx, by); ctx.lineTo(bx + dx / dl * 22, by + dy / dl * 22); ctx.stroke();
-    ctx.font = '600 12px system-ui'; ctx.textAlign = 'center';
-    ctx.fillText('N', bx + dx / dl * 31, by + dy / dl * 31 + 4);
+    drawRose(ctx, V, gz, H);
 
     ctx.textAlign = 'left'; ctx.fillStyle = '#1d2430'; ctx.font = '600 13px system-ui';
     ctx.fillText(info.title, 10, 18);
@@ -964,6 +957,40 @@ if (typeof document !== 'undefined') {
     ctx.textAlign = 'left';
   }
 
+  // Compass rose in the bottom-left corner of a view. Each cardinal direction is projected from a ground point, so the rose
+  // turns with the camera and N points to true north on the screen. N is solid; E, S, and W are lighter; ticks mark the
+  // points between.
+  function drawRose(ctx, V, gz, H) {
+    var R = H > 300 ? 28 : 18, cx = H > 300 ? 40 : 34, cy = H - 34, base = [16, 22];
+    function screenDir(ux, uy) {
+      var a = V.P([base[0], base[1], gz(base[1])]), b = V.P([base[0] + 10 * ux, base[1] + 10 * uy, gz(base[1] + 10 * uy)]);
+      var dx = b[0] - a[0], dy = b[1] - a[1], l = Math.sqrt(dx * dx + dy * dy) || 1;
+      return [dx / l, dy / l];
+    }
+    ctx.save();
+    ctx.beginPath(); ctx.arc(cx, cy, R + 6, 0, 2 * Math.PI);
+    ctx.fillStyle = 'rgba(255,255,255,0.82)'; ctx.fill();
+    ctx.strokeStyle = 'rgba(29,36,48,0.35)'; ctx.lineWidth = 1; ctx.stroke();
+    [[1, 1], [1, -1], [-1, -1], [-1, 1]].forEach(function (d) {
+      var u = screenDir(d[0] * Math.SQRT1_2, d[1] * Math.SQRT1_2);
+      ctx.beginPath();
+      ctx.moveTo(cx + u[0] * R * 0.55, cy + u[1] * R * 0.55); ctx.lineTo(cx + u[0] * R * 0.8, cy + u[1] * R * 0.8);
+      ctx.strokeStyle = 'rgba(29,36,48,0.5)'; ctx.lineWidth = 1; ctx.stroke();
+    });
+    [['N', 0, 1], ['E', 1, 0], ['S', 0, -1], ['W', -1, 0]].forEach(function (p) {
+      var u = screenDir(p[1], p[2]), px = -u[1], py = u[0], north = p[0] === 'N', w = north ? 4.5 : 3;
+      ctx.beginPath();
+      ctx.moveTo(cx + u[0] * R, cy + u[1] * R);
+      ctx.lineTo(cx + px * w, cy + py * w);
+      ctx.lineTo(cx - px * w, cy - py * w);
+      ctx.closePath();
+      ctx.fillStyle = north ? '#1d2430' : 'rgba(29,36,48,0.4)'; ctx.fill();
+      ctx.font = (north ? '700 ' : '600 ') + (H > 300 ? 13 : 10) + 'px system-ui';
+      ctx.fillStyle = '#1d2430'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      ctx.fillText(p[0], cx + u[0] * (R + 9), cy + u[1] * (R + 9));
+    });
+    ctx.restore();
+  }
   function makeView(camv, W, H) {
     var az = camv.az * Math.PI / 180;
     var el = C.clamp(camv.el, 3, 84) * Math.PI / 180;

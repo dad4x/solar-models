@@ -11,7 +11,7 @@ function makeCtx2d() {
   return new Proxy(store, {
     get(t, k) {
       if (k in t) return t[k];
-      if (k === 'fillText') { t[k] = (s) => { (t.__texts = t.__texts || []).push(String(s)); }; return t[k]; }
+      if (k === 'fillText') { t[k] = (s, x, y) => { (t.__texts = t.__texts || []).push({ text: String(s), x: x, y: y }); }; return t[k]; }
       t[k] = () => {};
       return t[k];
     },
@@ -140,6 +140,16 @@ const LOOMIS_YEAR = 'Year, kWh: original 40,437 · alternative 41,087';
   expectEq('year after the yearly steps', yearText(), LOOMIS_YEAR);
   expectEq('alternative modules on load', capA(), '44');
   expectEq('original modules on load', capO(), '44');
+
+  // The compass rose: in the default view north points up and to the right of the rose centre, east down and to the right.
+  const roseLabels = elements.cO._ctx.__texts || [];
+  const lastLabel = t => roseLabels.filter(l => l.text === t).pop();
+  const roseX = 40, roseY = 460 - 34;
+  expectEq('compass rose: north label up and to the right of the centre',
+    lastLabel('N').x > roseX && lastLabel('N').y < roseY, true);
+  expectEq('compass rose: east label down and to the right', lastLabel('E').x > roseX && lastLabel('E').y > roseY, true);
+  expectEq('compass rose: south label down and to the left', lastLabel('S').x < roseX && lastLabel('S').y > roseY, true);
+  expectEq('compass rose: west label up and to the left', lastLabel('W').x < roseX && lastLabel('W').y < roseY, true);
 
   // Changing the latitude looks up the zone. A London location changes the clock labels and the year; the default location
   // brings both back.
