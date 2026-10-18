@@ -575,6 +575,15 @@ const LOOMIS_YEAR = 'Year, kWh: plan 40,437 · alternative 41,087';
   // The battery for net zero: with a flat 0.50 kWh a quarter hour and no output at night, the largest shortfall is 2.0 kW.
   expectEq('the projected output line gives the battery for net zero: peak discharge and storage',
     /battery for net zero: peak discharge 2\.0 kW, storage [\d.]+ kWh/.test(elements.grTitle.textContent), true);
+  // The battery's quarter hours on the time graph, for the complete day: a discharge and a net grid flow for each of the 96
+  // quarter hours. The net goes below zero where the surplus is exported after the battery charges.
+  const battDay = elements.gr._hover;
+  expectEq('the time graph carries the battery discharge and net for each quarter hour of the complete day',
+    battDay.dis.length === 96 && battDay.net.length === 96, true);
+  expectEq('the battery discharges in the night hours, from the charge it took the day before', battDay.dis.some(p => p.kw > 0), true);
+  expectEq('the net goes below zero where the surplus is exported after charging', battDay.net.some(p => p.kw < 0), true);
+  expectEq('the time graph legend names the battery discharge and the net grid',
+    /battery discharge, kW[\s\S]*net grid, kW/.test(elements.grUse.textContent), true);
   expectEq('use legend: no full month in the file yet', elements.dgUse.textContent, 'use, kWh: no full month in the file yet');
   // Hovering the time graph's line: the quarter hour under the cursor, in kWh and kW. The stub maps x to the drawing one for one.
   const timeX = t => 8 + (t - 5) / 16 * (640 - 16);
@@ -582,11 +591,15 @@ const LOOMIS_YEAR = 'Year, kWh: plan 40,437 · alternative 41,087';
   expectEq('hovering the time graph gives the output and the use in kWh per 15 min',
     /Plan output [\d.]+ kWh per 15 min \([\d.]+ kW\)/.test(elements.tip.innerHTML) &&
     /Use 0\.50 kWh per 15 min \(2\.00 kW\)/.test(elements.tip.innerHTML), true);
+  expectEq('hovering the time graph also gives the battery discharge and the net grid for the quarter hour',
+    /Battery discharge [\d.]+ kWh per 15 min/.test(elements.tip.innerHTML) &&
+    /Net grid [+−][\d.]+ kWh per 15 min \((import|export)\)/.test(elements.tip.innerHTML), true);
   fireEv('gr', 'pointerleave', {});
   expectEq('leaving the time graph hides the tip', elements.tip.style.display, 'none');
   setVal('day', '265'); fire('day', 'change'); flush();   // Sep 22, 10 readings
   expectEq('a partial day shows its use, with no net', /· use 5\.0 kWh \(partial day\)/.test(elements.grTitle.textContent), true);
   expectEq('a partial day has no battery figure', /battery/.test(elements.grTitle.textContent), false);
+  expectEq('a partial day has no battery lines', elements.gr._hover.dis.length + elements.gr._hover.net.length, 0);
   setVal('day', '263'); fire('day', 'change'); flush();   // Sep 20
   const useOut20 = parseFloat(/day total ([\d.]+) kWh/.exec(elements.grTitle.textContent)[1]);
   setVal('day', '264'); fire('day', 'change'); flush();   // Sep 21
@@ -613,6 +626,10 @@ const LOOMIS_YEAR = 'Year, kWh: plan 40,437 · alternative 41,087';
   const novGraph = /^Plan Nov: ([\d,]+) kWh/.exec(novLabel);
   expectEq('the monthly output matches the date graph label',
     !!novRow && !!novGraph && Math.abs(parseFloat(novGraph[1].replace(/,/g, '')) - Math.round(parseFloat(novRow[1]))) <= 1, true);
+  // The date graph's battery months: the discharge, and the net with the battery, for each complete month (one here).
+  expectEq('the date graph carries the battery discharge and net for the full month',
+    elements.dg._hover.dis.length === 1 && elements.dg._hover.net.length === 1, true);
+  expectEq('the date legend names the battery lines', /battery discharge, kWh[\s\S]*net with battery/.test(elements.dgUse.textContent), true);
   // The year's battery rows: a flat 2.0 kW use with no output at night has a worst quarter hour of 2.0 kW, for both layouts.
   expectEq('the year battery: a worst quarter hour of 2.0 kW for both layouts',
     /Battery peak discharge, kW \(worst quarter hour\)<\/td><td>2\.0<\/td><td>2\.0<\/td>/.test(elements.useSum.innerHTML), true);
@@ -629,17 +646,24 @@ const LOOMIS_YEAR = 'Year, kWh: plan 40,437 · alternative 41,087';
     /With the battery \(60 kWh usable, 10 kW discharge, 10 kW charge, 90% round trip\)/.test(elements.useSum.innerHTML), true);
   setVal('batKwh', '0'); fire('batKwh', 'change'); flush();
   expectEq('no battery: the net with the battery is the net without one', batNet(), batNetNone());
+  expectEq('no battery: the discharge line is zero', elements.gr._hover.dis.every(p => p.kw === 0), true);
   const importNone = batImport();
   setVal('batKwh', '60'); fire('batKwh', 'change'); flush();
   expectEq('a battery cuts the grid import', batImport() <= importNone, true);
   expectEq('the day line gives the net with the battery', /with the battery: net [+−][\d.]+ kWh plan/.test(elements.useSum.innerHTML), true);
   expectEq('the time graph title gives the day net with the battery', /with battery, net [+−]\d+\.\d kWh/.test(elements.grTitle.textContent), true);
-  expectEq('the date graph has the monthly use line', elements.dgUse.textContent, 'use, kWh per month: from the use file');
+  // The net line adds up to the day's net with the battery in the title, to the title's rounding.
+  const titleNet = Number(/with battery, net ([+−]?[\d.]+) kWh/.exec(elements.grTitle.textContent)[1].replace('−', '-'));
+  const lineNet = elements.gr._hover.net.reduce((a, p) => a + p.kw * 0.25, 0);
+  expectEq('the net line adds up to the day net with the battery in the title', Math.abs(titleNet - lineNet) < 0.06, true);
+  expectEq('the date graph has the monthly use line', elements.dgUse.textContent.startsWith('use, kWh per month: from the use file'), true);
   // Hovering the date graph's line: the month under the cursor, with its output and its use, in kWh.
   const dateX = n => 8 + (n - 1) / 364 * (640 - 16);
   fireEv('dg', 'pointermove', { clientX: dateX(319), clientY: 60 });   // Nov 15
   expectEq('hovering the date graph gives the month, its output and its use in kWh',
     /<b>Nov<\/b><br>Plan output [\d,]+ kWh<br>Use 1,440 kWh/.test(elements.tip.innerHTML), true);
+  expectEq("hovering the date graph also gives the month's battery discharge and its net with the battery",
+    /Battery discharge [\d,]+ kWh<br>Net with battery [+−][\d,]+ kWh/.test(elements.tip.innerHTML), true);
   fire('useClear', 'click');
 
   // Dragging the cursor on a graph: the time graph sets the clock time to the quarter hour, the date graph sets the day. The stub
