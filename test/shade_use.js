@@ -38,6 +38,7 @@ const { elements, docListeners, fetchUrls, html, script, ctx, vm, expectEq, fire
   expectEq('the time graph legend names the battery charge line', /battery charge, % of usable/.test(html), true);
   expectEq('the battery charge runs from 0 to full on the day graph',
     battDay.soc.length === 96 && battDay.soc.every(p => p.frac >= 0 && p.frac <= 1.0001) && battDay.soc.some(p => p.frac > 0.1), true);
+  expectEq('the day graph marks full charge on the nominal 20 kW line', elements.gr._ctx.__texts.some(t => t.text === '20 kW / 100% charge'), true);
   expectEq('the time graph labels the battery and the grid at its zero line',
     ['battery discharge', 'battery charge', 'grid import', 'grid export'].every(w => elements.gr._ctx.__texts.some(t => t.text === w)), true);
   expectEq('the battery line is positive while it discharges and negative while it charges',
