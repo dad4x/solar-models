@@ -34,8 +34,11 @@ const { elements, docListeners, fetchUrls, html, script, ctx, vm, expectEq, fire
     battDay.dis.length === 96 && battDay.net.length === 96, true);
   expectEq('the battery discharges in the night hours, from the charge it took the day before', battDay.dis.some(p => p.kw > 0), true);
   expectEq('the net goes below zero where the surplus is exported after charging', battDay.net.some(p => p.kw < 0), true);
-  expectEq('the time graph legend names the battery discharge and the net grid',
-    /battery discharge, kW[\s\S]*net grid, kW/.test(elements.grUse.textContent), true);
+  expectEq('the time graph legend names the battery and the net grid', /battery, kW[\s\S]*net grid, kW/.test(html), true);
+  expectEq('the time graph labels the battery and the grid at its zero line',
+    ['battery discharge', 'battery charge', 'grid import', 'grid export'].every(w => elements.gr._ctx.__texts.some(t => t.text === w)), true);
+  expectEq('the battery line is positive while it discharges and negative while it charges',
+    battDay.bat.some(p => p.kw > 0) && battDay.bat.some(p => p.kw < 0), true);
   expectEq('use legend: no full month in the file yet', elements.dgUse.textContent, 'use, kWh: no full month in the file yet');
   // Hovering the time graph's line: the quarter hour under the cursor, in kWh and kW. The stub maps x to the drawing one for one.
   const timeX = t => 8 + (t - 5) / 16 * (640 - 16);
@@ -44,7 +47,7 @@ const { elements, docListeners, fetchUrls, html, script, ctx, vm, expectEq, fire
     /Plan output [\d.]+ kWh per 15 min \([\d.]+ kW\)/.test(elements.tip.innerHTML) &&
     /Use 0\.50 kWh per 15 min \(2\.00 kW\)/.test(elements.tip.innerHTML), true);
   expectEq('hovering the time graph also gives the battery discharge and the net grid for the quarter hour',
-    /Battery discharge [\d.]+ kWh per 15 min/.test(elements.tip.innerHTML) &&
+    /Battery (discharging|charging|idle)/.test(elements.tip.innerHTML) &&
     /Net grid [+−][\d.]+ kWh per 15 min \((import|export)\)/.test(elements.tip.innerHTML), true);
   fireEv('gr', 'pointerleave', {});
   expectEq('leaving the time graph hides the tip', elements.tip.style.display, 'none');
@@ -81,7 +84,10 @@ const { elements, docListeners, fetchUrls, html, script, ctx, vm, expectEq, fire
   // The date graph's battery months: the discharge, and the net with the battery, for each complete month (one here).
   expectEq('the date graph carries the battery discharge and net for the full month',
     elements.dg._hover.dis.length === 1 && elements.dg._hover.net.length === 1, true);
-  expectEq('the date legend names the battery lines', /battery discharge, kWh[\s\S]*net with battery/.test(elements.dgUse.textContent), true);
+  expectEq('the date legend names the battery and the net with it', /battery, kWh per month[\s\S]*net with battery, kWh per month/.test(html), true);
+  expectEq('the date graph labels the battery and the grid at its zero line',
+    ['battery discharged', 'battery charged', 'grid import', 'grid export'].every(w => elements.dg._ctx.__texts.some(t => t.text === w)), true);
+  expectEq('the date graph lines run to Dec 31, the right edge of the year', elements.dg._ctx.__pts.some(p => p.x >= 630), true);
   // The year's battery rows: a flat 2.0 kW use with no output at night has a worst quarter hour of 2.0 kW, for both layouts.
   expectEq('the year battery: a worst quarter hour of 2.0 kW for both layouts',
     /Battery peak discharge, kW \(worst quarter hour\)<\/td><td>2\.0<\/td><td>2\.0<\/td>/.test(elements.useSum.innerHTML), true);
@@ -115,7 +121,7 @@ const { elements, docListeners, fetchUrls, html, script, ctx, vm, expectEq, fire
   expectEq('hovering the date graph gives the month, its output and its use in kWh',
     /<b>Nov<\/b><br>Plan output [\d,]+ kWh<br>Use 1,440 kWh/.test(elements.tip.innerHTML), true);
   expectEq("hovering the date graph also gives the month's battery discharge and its net with the battery",
-    /Battery discharge [\d,]+ kWh<br>Net with battery [+−][\d,]+ kWh/.test(elements.tip.innerHTML), true);
+    /Battery discharged [\d,]+ kWh<br>Battery charged [\d,]+ kWh<br>Net with battery [+−][\d,]+ kWh/.test(elements.tip.innerHTML), true);
   fire('useClear', 'click');
 
   // Dragging the cursor on a graph: the time graph sets the clock time to the quarter hour, the date graph sets the day. The stub

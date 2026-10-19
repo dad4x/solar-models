@@ -51,6 +51,8 @@ const { elements, docListeners, fetchUrls, html, script, ctx, vm, expectEq, fire
   const helpKeys = [...new Set([...html.matchAll(/data-help="(\w+)"/g)].map(m => m[1]))];
   const missingHelp = helpKeys.filter(k => !new RegExp('\\b' + k + ': "').test(script));
   expectEq('every (i) button has help text (' + helpKeys.join(', ') + ')', missingHelp.length, 0);
+  expectEq('the graph help explains the battery line and its sign',
+    /purple is the battery, under the battery limits/.test(script) && /solid above zero is its discharge/.test(script), true);
 
   // The compass rose: in the default view north points up and to the right of the rose centre, east down and to the right.
   const roseLabels = elements.cO._ctx.__texts || [];

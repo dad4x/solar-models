@@ -14,6 +14,8 @@ function makeCtx2d() {
     get(t, k) {
       if (k in t) return t[k];
       if (k === 'fillText') { t[k] = (s, x, y) => { (t.__texts = t.__texts || []).push({ text: String(s), x: x, y: y }); }; return t[k]; }
+      // Line ends, so a test can see how far a line reaches across the drawing.
+      if (k === 'moveTo' || k === 'lineTo') { t[k] = (x, y) => { (t.__pts = t.__pts || []).push({ x: x, y: y }); }; return t[k]; }
       t[k] = () => {};
       return t[k];
     },

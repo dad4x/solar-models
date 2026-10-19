@@ -232,7 +232,7 @@ h1 .info{width:20px;height:20px;font-size:12px;margin-left:8px}
 <div class="grwrap">
 <div class="grhead"><span class="grtitle" id="grTitle"></span><button class="grbtn on" id="grPlan" type="button">Plan</button><button class="grbtn" id="grAlt" type="button">Alternative</button><button class="info" type="button" data-help="graph" aria-label="Help: projected output graph">i</button></div>
 <canvas id="gr" height="130"></canvas>
-<div class="grlegend"><span><i class="sw" style="background:#2f6fb0"></i>projected output, kW</span><span><i class="sw" style="background:#c0502d"></i><span id="grUse"></span></span></div>
+<div class="grlegend"><span><i class="sw" style="background:#2f6fb0"></i>projected output, kW</span><span><i class="sw" style="background:#c0502d"></i><span id="grUse"></span></span><span><i class="sw" style="background:#8e44ad"></i>battery, kW: above zero discharging to the house, below zero charging from the array</span><span><i class="sw" style="background:#138a72"></i>net grid, kW: above zero is import, below zero is export after charging</span></div>
 </div>
 </div>
 </section>
@@ -243,7 +243,7 @@ h1 .info{width:20px;height:20px;font-size:12px;margin-left:8px}
 <div class="grwrap">
 <div class="grhead"><span class="grtitle" id="dgTitle"></span><button class="grbtn on" id="dgPlan" type="button">Plan</button><button class="grbtn" id="dgAlt" type="button">Alternative</button><button class="info" type="button" data-help="dategraph" aria-label="Help: projected output by month">i</button></div>
 <canvas id="dg" height="130"></canvas>
-<div class="grlegend"><span><i class="sw" style="background:#2f6fb0"></i>projected output, kWh per month</span><span><i class="sw" style="background:#c0502d"></i><span id="dgUse"></span></span></div>
+<div class="grlegend"><span><i class="sw" style="background:#2f6fb0"></i>projected output, kWh per month</span><span><i class="sw" style="background:#c0502d"></i><span id="dgUse"></span></span><span><i class="sw" style="background:#8e44ad"></i>battery, kWh per month: solid above zero is discharged, dashed below zero is charged</span><span><i class="sw" style="background:#138a72"></i>net with battery, kWh per month: below zero, more exported than imported</span></div>
 </div>
 </div>
 </section>
@@ -955,8 +955,8 @@ if (typeof document !== 'undefined') {
     site: "Ground albedo (0.40) is a placeholder; set it for your surface. Bifaciality scales the rear face. Output = irradiance × rating ÷ 1000 × system factor, so the rating is the front STC power over 2.205 m² (22.7% at 500 W). The system factor (0.85) is a placeholder for temperature, soiling, inverter, and wiring losses. The height cap is checked two ways: from the grade under each row, or from the lowest grade on the site. Set the site rise to 0 to remove the slope. The height cap and setbacks are inputs; check them against the local code.",
     rows: "Base = lowest edge above grade (north and south rows: at the row's middle). Height difference = first to last module, + = east higher. Gap = space between modules in a row, in inches. Panels = modules in the row. Right and up place each row's base corner on graph paper, measured from the origin 0,0 at the south-west corner of the sketch; the defaults are the baseline locations. Panels and gap extend a column north, and a row east, from that corner. Turn the inner north and south rows on to try four rows in the north-south direction, with the columns off. Add row switches on the next off row and opens it. The four extra rows come after the south row and start north of the north row, 12 ft apart. Add column does the same for the next off column. All rows moves every row together, right (+E) and up (+N). Each setting has a slider beside its number box. On a wide screen the column names sit above the rows, and each name's tooltip gives its range; type a value in a box for anything outside a slider's range. Drag a row's modules in either view to move that row: its right and up follow the pointer, to 0.1 ft.",
     time: "Local clock time in the time zone under Location, with that zone's daylight time for 2026. Drag the cursor on the time graph, or press anywhere on it, to set the clock time: 5 am at the left and 9 pm at the right, which covers sunrise and sunset on June 21 at the default site. The sun is computed from apparent solar time, so the time zone changes the clock labels, not the energy.",
-    graph: "The projected output of the selected layout for this day, in kW at each clock time, on a clock scale from 5 am to 9 pm. It comes from the same clear-sky model as the day total, so the area under the curve is the day's output in kWh. Plan and Alternative choose the layout. The orange use line is the day's readings from the use file, in kW on the same clock. Battery for net zero, which needs a complete day of use readings: the peak discharge is the largest quarter-hour shortfall of the array against use, in kW, which is the power a battery must supply at that moment. The storage is the swing of the day's running balance (output minus use, in kWh), from its lowest point to its highest: the most energy a battery must hold at once to cover every shortfall from earlier surplus. A battery moves energy in time; it cannot create it. So the day's net is not the storage. A net import cannot be closed by any battery, and a net export is usually far smaller than the storage, because the house draws at night when the array makes nothing. These figures are ideal: no losses, no power limit, and the day is treated alone.",
-    dategraph: "The projected output of the selected layout for each month, in kWh. Each point is the month's total, the number on its monthly label, worked out for the 15th of the month and scaled by the days in the month. The points sit on the day slider's scale; the line between them is a guide. The marker is the selected day, and the reading is its month's total. Plan and Alternative choose the layout for both graphs. The orange use line is the monthly use from the use file, for each month the file completes.",
+    graph: "The projected output of the selected layout for this day, in kW at each clock time, on a clock scale from 5 am to 9 pm. It comes from the same clear-sky model as the day total, so the area under the curve is the day's output in kWh. Plan and Alternative choose the layout. The orange use line is the day's readings from the use file, in kW on the same clock. Battery for net zero, which needs a complete day of use readings: the peak discharge is the largest quarter-hour shortfall of the array against use, in kW, which is the power a battery must supply at that moment. The storage is the swing of the day's running balance (output minus use, in kWh), from its lowest point to its highest: the most energy a battery must hold at once to cover every shortfall from earlier surplus. A battery moves energy in time; it cannot create it. So the day's net is not the storage. A net import cannot be closed by any battery, and a net export is usually far smaller than the storage, because the house draws at night when the array makes nothing. These figures are ideal: no losses, no power limit, and the day is treated alone. The lines on this graph: blue is the projected output; orange is the use from the use file; purple is the battery, under the battery limits in the Use data box: above zero it discharges to the house, below zero it charges from the array; teal is the net grid flow after the battery, where above zero is import from the grid and below zero is export after the battery has charged. The grey line marks zero: battery labels on its left, grid labels on its right.",
+    dategraph: "The projected output of the selected layout for each month, in kWh. Each point is the month's total, the number on its monthly label, worked out for the 15th of the month and scaled by the days in the month. The points sit on the day slider's scale; the line between them is a guide. The marker is the selected day, and the reading is its month's total. Plan and Alternative choose the layout for both graphs. The orange use line is the monthly use from the use file, for each month the file completes. The purple line is the battery each month under the battery limits: solid above zero is its discharge to the house, dashed below zero is its charge from the array. The teal points are the net with the battery, where below zero means more was exported than imported.",
     use: "Load the usage file from PG&E: the electric interval CSV, with 15-minute readings. This page reads it in your browser, and nothing is uploaded or saved. The page is public, so keep the file out of the repository. The orange use line on the time graph is the day's readings in kW, on the same clock as the output. The net is use minus the clear-sky output for the same day: + is net import from the grid, − is net export. The summary covers the complete days in the file, a day being complete with 92 or more readings. The battery rows over the year take the worst quarter hour and the worst day of the complete days, each day set against its month's clear-sky output (the 15th of the month), so they are an estimate; the day line uses the day's own output. The battery rows run a battery with the limits in the Use data box (usable kWh, max discharge and max charge in kW, and round-trip efficiency; a usable capacity of zero is no battery) through the file's days in order, starting empty and carrying its charge from day to day. A surplus charges it and the rest is exported; a shortfall draws on it and the rest is imported. Net is import minus export. A battery only moves energy in time, so with no losses the net changes only by what it holds at the end; the losses raise the net import, while the import and export both fall where the battery covers them. The battery figures use each month's clear-sky profile, except the selected day, which uses its own output.",
     day: "Monthly and yearly totals use the 15th of each month, scaled by the days in that month; checked at the default site against every day of the year, each month is within 2% and the year within 0.1%. Drag the cursor on the date graph, or press anywhere on it, to set the day. The markers show the equinoxes and solstices for 2026; an equinox can fall a day earlier or later by time zone.",
     method: "Geometry: row positions are read from your sketch, so measure them to confirm. Each row's base corner is placed from the origin 0,0 on graph paper (east and north positive); the baseline locations are the defaults. Base elevation is the lowest edge above local grade; for the north and south rows it is at the middle of the row, and the height difference runs from the first module to the last, each module level across its own width. Shading uses the sun path for the location, the east wall (if on), and the modules only: no trees, house, or neighbor structures. True north is the sketch's up turned by the true north offset (0 by default), and the sun path follows it. Output is a clear-sky estimate: direct beam, sky diffuse, and ground-reflected light on each face, with the back face scaled by the bifaciality input. Ground reflection is ray-traced from each face to the ground it sees; each ground point is tested for direct sun against the array and the wall, and the sky diffuse reaching that ground is not reduced by the array."
@@ -1894,8 +1894,9 @@ if (typeof document !== 'undefined') {
       lines.push('<b>' + fmtClock(t, h.N, h.site) + '</b>');
       if (o) lines.push(h.label + ' output ' + (o.kw * 0.25).toFixed(2) + ' kWh per 15 min (' + o.kw.toFixed(2) + ' kW)');
       if (u && Math.abs(u.t - t) <= 0.13) lines.push('Use ' + (u.kw * 0.25).toFixed(2) + ' kWh per 15 min (' + u.kw.toFixed(2) + ' kW)');
-      var bd = nearestPoint(h.dis, t), bn = nearestPoint(h.net, t);
-      if (bd && Math.abs(bd.t - t) <= 0.13) lines.push('Battery discharge ' + (bd.kw * 0.25).toFixed(2) + ' kWh per 15 min');
+      var bb = nearestPoint(h.bat, t), bn = nearestPoint(h.net, t);
+      if (bb && Math.abs(bb.t - t) <= 0.13) lines.push(bb.kw > 0.0001 ? 'Battery discharging ' + (bb.kw * 0.25).toFixed(2) + ' kWh per 15 min' :
+        bb.kw < -0.0001 ? 'Battery charging ' + (-bb.kw * 0.25).toFixed(2) + ' kWh per 15 min' : 'Battery idle');
       if (bn && Math.abs(bn.t - t) <= 0.13) lines.push('Net grid ' + (bn.kw >= 0 ? '+' : '−') + Math.abs(bn.kw * 0.25).toFixed(2) + ' kWh per 15 min (' + (bn.kw >= 0 ? 'import' : 'export') + ')');
     } else {
       var n = 1 + at * 364, o2 = nearestPoint(h.out, n), m = o2 ? o2.m : (nearestPoint(h.use, n) || {}).m;
@@ -1904,8 +1905,9 @@ if (typeof document !== 'undefined') {
       lines.push('<b>' + MNAMES[m] + '</b>');
       if (o2 && o2.m === m) lines.push(h.label + ' output ' + fmtK(o2.kw) + ' kWh');
       if (u2) lines.push('Use ' + fmtK(u2.kw) + ' kWh');
-      var bd2 = (h.dis || []).filter(function (p) { return p.m === m; })[0], bn2 = (h.net || []).filter(function (p) { return p.m === m; })[0];
-      if (bd2) lines.push('Battery discharge ' + fmtK(bd2.kw) + ' kWh');
+      var bd2 = (h.dis || []).filter(function (p) { return p.m === m; })[0], bc2 = (h.chg || []).filter(function (p) { return p.m === m; })[0], bn2 = (h.net || []).filter(function (p) { return p.m === m; })[0];
+      if (bd2) lines.push('Battery discharged ' + fmtK(bd2.kw) + ' kWh');
+      if (bc2) lines.push('Battery charged ' + fmtK(bc2.kw) + ' kWh');
       if (bn2) lines.push('Net with battery ' + signedK(bn2.kw) + ' kWh (+ import, − export)');
     }
     if (!lines.length) { hideTip(); return; }
@@ -1956,12 +1958,14 @@ if (typeof document !== 'undefined') {
   }
   // A day's quarter hours on the clock, as { t, kw } points: each quarter hour's kWh, as kW.
   function slotKw(slots) { return slots.map(function (v, s) { return { t: s * 0.25 + 0.125, kw: v * 4 }; }); }
-  // The battery's quarter hours for the selected day, as kW on the clock: its discharge, and its net grid flow (+ import, − export
-  // after charging). Only a complete day, with the year's battery run done for these inputs; null otherwise.
+  // The battery's quarter hours for the selected day, as kW on the clock. bat is the battery's flow: + discharging to the house, −
+  // charging from the array. dis and chg are its discharge and charge; net is the grid flow (+ import, − export after charging).
+  // Only a complete day, with the year's battery run done for these inputs; null otherwise.
   function batteryDay(prm, D, dd) {
     if (!dd || !yearC || !yearC.done || yearC.key !== yearKey(prm)) return null;
     var dk = batterySim(yearC, prm, batteryLimits(), dd, GRAPH.view === 'plan' ? 'plan' : 'alt').days[useKeyFor(D)];
-    return dk && dk.slots ? { day: dk, dis: slotKw(dk.slots.dis), net: slotKw(dk.slots.net) } : null;
+    return dk && dk.slots ? { day: dk, dis: slotKw(dk.slots.dis), chg: slotKw(dk.slots.chg), net: slotKw(dk.slots.net),
+      bat: slotKw(dk.slots.dis.map(function (v, s) { return v - dk.slots.chg[s]; })) } : null;
   }
   function drawGraph(dd, prm, D, clock) {
     var cv = $('gr'), ctx = cv.getContext('2d');
@@ -1979,12 +1983,12 @@ if (typeof document !== 'undefined') {
     var use = (GRAPH.use || []).filter(function (p) { return p.t >= GRAPH.from && p.t <= GRAPH.to; });
     var dayKey = USE ? useKeyFor(D) : null, whole = !!dayKey && completeDay(dayKey);
     var batDay = whole && en ? batteryDay(prm, D, dd) : null;
-    var disLine = batDay ? batDay.dis.filter(function (p) { return p.t >= GRAPH.from && p.t <= GRAPH.to; }) : [];
+    var batLine = batDay ? batDay.bat.filter(function (p) { return p.t >= GRAPH.from && p.t <= GRAPH.to; }) : [];
     var netLine = batDay ? batDay.net.filter(function (p) { return p.t >= GRAPH.from && p.t <= GRAPH.to; }) : [];
-    cv._hover = { kind: 'time', out: out, use: GRAPH.use || [], dis: batDay ? batDay.dis : [], net: batDay ? batDay.net : [], label: planView ? 'Plan' : 'Alternative', site: prm.site, N: D.N,
+    cv._hover = { kind: 'time', out: out, use: GRAPH.use || [], bat: batDay ? batDay.bat : [], dis: batDay ? batDay.dis : [], chg: batDay ? batDay.chg : [], net: batDay ? batDay.net : [], label: planView ? 'Plan' : 'Alternative', site: prm.site, N: D.N,
       from: GRAPH.from, to: GRAPH.to, pad: GRAPH.pad, W: W };   // what a hover over the line reads
     var peak = 0, low = 0;
-    shown.concat(use, disLine, netLine).forEach(function (p) { peak = Math.max(peak, p.kw); low = Math.min(low, p.kw); });
+    shown.concat(use, batLine, netLine).forEach(function (p) { peak = Math.max(peak, p.kw); low = Math.min(low, p.kw); });
     var ymax = niceTop(peak), ymin = low < 0 ? -niceTop(-low) : 0;
     function Y(kw) { return base - (kw - ymin) / (ymax - ymin) * (base - top); }
     ctx.lineWidth = 1; ctx.strokeStyle = '#e3e7ed';
@@ -2011,11 +2015,15 @@ if (typeof document !== 'undefined') {
     }
     trace(shown, '#2f6fb0', 'rgba(47,111,176,0.12)');
     trace(use, '#c0502d', null);
-    trace(disLine, '#8e44ad', null);
+    trace(batLine, '#8e44ad', null);
     trace(netLine, '#138a72', null);
     if (ymin < 0) {   // the zero line, drawn over the output fill: below it the net is export after charging
       var z0 = Math.round(Y(0)) + 0.5;
       ctx.strokeStyle = '#8a94a3'; ctx.beginPath(); ctx.moveTo(GRAPH.pad, z0); ctx.lineTo(W - GRAPH.pad, z0); ctx.stroke();
+      ctx.font = '10px system-ui'; ctx.fillStyle = '#5b6472';
+      if (batDay) { ctx.textAlign = 'left'; ctx.fillText('battery discharge', GRAPH.pad + 2, z0 - 4); ctx.fillText('battery charge', GRAPH.pad + 2, z0 + 12); }
+      ctx.textAlign = 'right';   // the grid, beside the zero line
+      ctx.fillText('grid import', W - GRAPH.pad, z0 - 4); ctx.fillText('grid export', W - GRAPH.pad, z0 + 12);
     }
     // The slider's time: a vertical line, a dot on the output line, and the reading.
     var v = valueAt(shown, clock), mx = Math.round(X(clock)) + 0.5;
@@ -2048,7 +2056,7 @@ if (typeof document !== 'undefined') {
     }
     if (batDay) $('grTitle').textContent += ' · with battery, net ' + signed(batDay.day.imp - batDay.day.exp) + ' kWh';
     $('grUse').textContent = useKwh !== null ? 'use, kW: from the use file' : (USE ? 'use, kW: no readings for this day' : 'use, kW: not imported yet');
-    if (batDay) $('grUse').textContent += ' · battery discharge, kW (purple) · net grid, kW (teal; + import, − export after charging)';
+    if (!batDay && useKwh !== null) $('grUse').textContent += ' · battery and net need a complete day and the yearly totals';
     $('grPlan').classList.toggle('on', planView);
     $('grAlt').classList.toggle('on', !planView);
   }
@@ -2078,7 +2086,7 @@ if (typeof document !== 'undefined') {
     var use = (GRAPH.dateUse || []).map(function (u) { return { t: C.dayOfYear(u.m + 1, 15), kw: u.kwh, m: u.m }; });
     // The battery's months: discharge, and net grid flow (+ import, − export after charging), for each complete month, from the
     // year's battery run; a month that appears twice uses its latest year. Only with the year done for these inputs.
-    var dis = [], net = [];
+    var dis = [], chg = [], net = [];
     if (prm && st.done && st.key === yearKey(prm) && USE) {
       var bsim = batterySim(st, prm, batteryLimits(), dd, planView ? 'plan' : 'alt'), latest = {};
       completeMonths().forEach(function (c) { latest[c.m] = c; });
@@ -2086,13 +2094,15 @@ if (typeof document !== 'undefined') {
         var e = bsim.months[latest[mi].ym];
         if (!e) return;
         dis.push({ t: C.dayOfYear(+mi + 1, 15), kw: e.dis, m: +mi });
+        chg.push({ t: C.dayOfYear(+mi + 1, 15), kw: e.chg, m: +mi });
         net.push({ t: C.dayOfYear(+mi + 1, 15), kw: e.imp - e.exp, m: +mi });
       });
     }
-    cv._hover = { kind: 'date', out: pts, use: use, dis: dis, net: net, label: planView ? 'Plan' : 'Alternative', pad: GRAPH.pad, W: W };
+    cv._hover = { kind: 'date', out: pts, use: use, dis: dis, chg: chg, net: net, label: planView ? 'Plan' : 'Alternative', pad: GRAPH.pad, W: W };
     var peak = 0, low = 0;
     pts.concat(use, dis).forEach(function (p) { peak = Math.max(peak, p.kw); });
     net.forEach(function (p) { peak = Math.max(peak, p.kw); low = Math.min(low, p.kw); });
+    chg.forEach(function (p) { low = Math.min(low, -p.kw); });
     var ymax = niceCeil(peak), ymin = low < 0 ? -niceCeil(-low) : 0;
     function Y(v) { return base - (v - ymin) / (ymax - ymin) * (base - top); }
     ctx.lineWidth = 1; ctx.strokeStyle = '#e3e7ed';
@@ -2113,13 +2123,33 @@ if (typeof document !== 'undefined') {
       }
       path(); ctx.strokeStyle = color; ctx.lineWidth = 2; ctx.stroke();
     }
-    trace(pts, '#2f6fb0', 'rgba(47,111,176,0.12)');
-    trace(use, '#c0502d', null);
-    trace(dis, '#8e44ad', null);
-    trace(net, '#138a72', null);
+    // The month lines run from each month's 15th. The first and last months are carried out to Jan 1 and Dec 31 when they are in
+    // the file, so the lines cover the year; the dots stay on the 15ths.
+    function yearEdges(list) {
+      if (!list.length) return list;
+      var edged = list.slice();
+      if (list[0].m === 0) edged.unshift({ t: 1, kw: list[0].kw, m: 0 });
+      if (list[list.length - 1].m === 11) edged.push({ t: 365, kw: list[list.length - 1].kw, m: 11 });
+      return edged;
+    }
+    trace(yearEdges(pts), '#2f6fb0', 'rgba(47,111,176,0.12)');
+    trace(yearEdges(use), '#c0502d', null);
+    trace(yearEdges(dis), '#8e44ad', null);
+    trace(yearEdges(net), '#138a72', null);
+    // The battery's charge, below zero: the same purple, dashed, with its dots.
+    var chgLine = chg.map(function (p) { return { t: p.t, kw: -p.kw, m: p.m }; });
+    if (chgLine.length > 1) {
+      ctx.beginPath(); yearEdges(chgLine).forEach(function (p, i) { if (i === 0) ctx.moveTo(X(p.t), Y(p.kw)); else ctx.lineTo(X(p.t), Y(p.kw)); });
+      ctx.setLineDash([5, 4]); ctx.strokeStyle = '#8e44ad'; ctx.lineWidth = 2; ctx.stroke(); ctx.setLineDash([]);
+    }
+    ctx.fillStyle = '#8e44ad'; chgLine.forEach(function (p) { ctx.beginPath(); ctx.arc(X(p.t), Y(p.kw), 2.5, 0, 2 * Math.PI); ctx.fill(); });
     if (ymin < 0) {   // the zero line, drawn over the output fill: below it the net is export after charging
       var z0 = Math.round(Y(0)) + 0.5;
       ctx.strokeStyle = '#8a94a3'; ctx.beginPath(); ctx.moveTo(GRAPH.pad, z0); ctx.lineTo(W - GRAPH.pad, z0); ctx.stroke();
+      ctx.font = '10px system-ui'; ctx.fillStyle = '#5b6472';
+      if (dis.length) { ctx.textAlign = 'left'; ctx.fillText('battery discharged', GRAPH.pad + 2, z0 - 4); ctx.fillText('battery charged', GRAPH.pad + 2, z0 + 12); }
+      ctx.textAlign = 'right';   // the grid, beside the zero line
+      ctx.fillText('grid import', W - GRAPH.pad, z0 - 4); ctx.fillText('grid export', W - GRAPH.pad, z0 + 12);
     }
     ctx.fillStyle = '#2f6fb0';
     pts.forEach(function (p) { ctx.beginPath(); ctx.arc(X(p.t), Y(p.kw), 2.5, 0, 2 * Math.PI); ctx.fill(); });
@@ -2149,7 +2179,6 @@ if (typeof document !== 'undefined') {
       (st.done ? fmtK(sumArr(vals)) : '…') + ' kWh';
     $('dgUse').textContent = GRAPH.dateUse && GRAPH.dateUse.length ? 'use, kWh per month: from the use file' :
       (USE ? 'use, kWh: no full month in the file yet' : 'use, kWh: not imported yet');
-    if (dis.length) $('dgUse').textContent += ' · battery discharge, kWh (purple) · net with battery (teal; + import, − export after charging)';
     $('dgPlan').classList.toggle('on', planView);
     $('dgAlt').classList.toggle('on', !planView);
   }
@@ -2304,7 +2333,7 @@ if (typeof document !== 'undefined') {
   function batterySim(st, prm, lim, dd, which) {
     var prof = yearProfiles(st, prm)[which], eta = Math.sqrt(lim.eff), chgKwh = lim.chg * 0.25, disKwh = lim.dis * 0.25;
     var D = dateInfo(), selKey = dd ? useKeyFor(D) : null, soc = 0;
-    var res = { days: {}, months: {}, total: { imp: 0, exp: 0, dis: 0, use: 0, out: 0 } };
+    var res = { days: {}, months: {}, total: { imp: 0, exp: 0, dis: 0, chg: 0, use: 0, out: 0 } };
     usageDays().forEach(function (k) {
       var day = USE.days[k];
       if (day.n < 92) return;
@@ -2314,23 +2343,23 @@ if (typeof document !== 'undefined') {
       var rs = row ? (which === 'plan' ? row.planSeries : row.altSeries) : null;
       var o = k === selKey ? clockSlots(dd.en[which === 'plan' ? 'original' : 'alternative'].series, clockShift(D.N, prm.site))
         : rs ? clockSlots(rs, clockShift(row.N, prm.site)) : prof[+k.slice(5, 7) - 1];
-      var imp = 0, exp = 0, dis = 0, useT = 0, outT = 0, soc0 = soc, disS = [], netS = [];
+      var imp = 0, exp = 0, dis = 0, chg = 0, useT = 0, outT = 0, soc0 = soc, disS = [], netS = [], chgS = [];
       for (var s = 0; s < 96; s++) {
         var u = day.kwh[s] || 0, q = o[s];
         useT += u; outT += q;
         if (q >= u) {
           var sur = q - u, put = Math.min(sur, chgKwh, Math.max(0, lim.kwh - soc) / eta);   // energy taken from the surplus
-          soc += put * eta; exp += sur - put; netS[s] = put - sur; disS[s] = 0;
+          soc += put * eta; exp += sur - put; chg += put; netS[s] = put - sur; disS[s] = 0; chgS[s] = put;
         } else {
           var def = u - q, give = Math.min(def, disKwh, soc * eta);                        // energy delivered to the house
-          soc -= give / eta; imp += def - give; dis += give; disS[s] = give; netS[s] = def - give;
+          soc -= give / eta; imp += def - give; dis += give; disS[s] = give; chgS[s] = 0; netS[s] = def - give;
         }
       }
-      res.days[k] = { imp: imp, exp: exp, dis: dis, use: useT, out: outT, soc0: soc0, soc1: soc };
-      if (k === selKey) res.days[k].slots = { dis: disS, net: netS };   // the selected day's quarter hours, for the graphs
-      var ym = k.slice(0, 7), mo = res.months[ym] || (res.months[ym] = { imp: 0, exp: 0, dis: 0, use: 0, out: 0 });
-      mo.imp += imp; mo.exp += exp; mo.dis += dis; mo.use += useT; mo.out += outT;
-      res.total.imp += imp; res.total.exp += exp; res.total.dis += dis; res.total.use += useT; res.total.out += outT;
+      res.days[k] = { imp: imp, exp: exp, dis: dis, chg: chg, use: useT, out: outT, soc0: soc0, soc1: soc };
+      if (k === selKey) res.days[k].slots = { dis: disS, chg: chgS, net: netS };   // the selected day's quarter hours, for the graphs
+      var ym = k.slice(0, 7), mo = res.months[ym] || (res.months[ym] = { imp: 0, exp: 0, dis: 0, chg: 0, use: 0, out: 0 });
+      mo.imp += imp; mo.exp += exp; mo.dis += dis; mo.chg += chg; mo.use += useT; mo.out += outT;
+      res.total.imp += imp; res.total.exp += exp; res.total.dis += dis; res.total.chg += chg; res.total.use += useT; res.total.out += outT;
     });
     return res;
   }
