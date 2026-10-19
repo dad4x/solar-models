@@ -35,6 +35,9 @@ const { elements, docListeners, fetchUrls, html, script, ctx, vm, expectEq, fire
   expectEq('the battery discharges in the night hours, from the charge it took the day before', battDay.dis.some(p => p.kw > 0), true);
   expectEq('the net goes below zero where the surplus is exported after charging', battDay.net.some(p => p.kw < 0), true);
   expectEq('the time graph legend names the battery and the net grid', /battery, kW[\s\S]*net grid, kW/.test(html), true);
+  expectEq('the time graph legend names the battery charge line', /battery charge, % of usable/.test(html), true);
+  expectEq('the battery charge runs from 0 to full on the day graph',
+    battDay.soc.length === 96 && battDay.soc.every(p => p.frac >= 0 && p.frac <= 1.0001) && battDay.soc.some(p => p.frac > 0.1), true);
   expectEq('the time graph labels the battery and the grid at its zero line',
     ['battery discharge', 'battery charge', 'grid import', 'grid export'].every(w => elements.gr._ctx.__texts.some(t => t.text === w)), true);
   expectEq('the battery line is positive while it discharges and negative while it charges',
@@ -49,6 +52,7 @@ const { elements, docListeners, fetchUrls, html, script, ctx, vm, expectEq, fire
   expectEq('hovering the time graph also gives the battery discharge and the net grid for the quarter hour',
     /Battery (discharging|charging|idle)/.test(elements.tip.innerHTML) &&
     /Net grid [+−][\d.]+ kWh per 15 min \((import|export)\)/.test(elements.tip.innerHTML), true);
+  expectEq('hovering the time graph gives the battery charge as a share of usable', /Battery charge \d+% of usable/.test(elements.tip.innerHTML), true);
   fireEv('gr', 'pointerleave', {});
   expectEq('leaving the time graph hides the tip', elements.tip.style.display, 'none');
   setVal('day', '265'); fire('day', 'change'); flush();   // Sep 22, 10 readings
@@ -84,9 +88,9 @@ const { elements, docListeners, fetchUrls, html, script, ctx, vm, expectEq, fire
   // The date graph's battery months: the discharge, and the net with the battery, for each complete month (one here).
   expectEq('the date graph carries the battery discharge and net for the full month',
     elements.dg._hover.dis.length === 1 && elements.dg._hover.net.length === 1, true);
-  expectEq('the date legend names the battery and the net with it', /battery, kWh per month[\s\S]*net with battery, kWh per month/.test(html), true);
+  expectEq('the date legend names the battery discharge and the net with it', /battery discharged to the house, kWh per month[\s\S]*net with battery, kWh per month/.test(html), true);
   expectEq('the date graph labels the battery and the grid at its zero line',
-    ['battery discharged', 'battery charged', 'grid import', 'grid export'].every(w => elements.dg._ctx.__texts.some(t => t.text === w)), true);
+    ['battery discharged', 'grid import', 'grid export'].every(w => elements.dg._ctx.__texts.some(t => t.text === w)), true);
   expectEq('the date graph lines run to Dec 31, the right edge of the year', elements.dg._ctx.__pts.some(p => p.x >= 630), true);
   // The year's battery rows: a flat 2.0 kW use with no output at night has a worst quarter hour of 2.0 kW, for both layouts.
   expectEq('the year battery: a worst quarter hour of 2.0 kW for both layouts',
