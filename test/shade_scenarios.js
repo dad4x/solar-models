@@ -121,5 +121,17 @@ const { elements, docListeners, fetchUrls, html, script, ctx, vm, expectEq, fire
   expectEq('day slider at Dec 31', elements.dateLabel.textContent, 'Dec 31   (day 365 of 365)');
   setVal('day', '355'); fire('day', 'change');
 
+  // The loaded scenario's name is the name for the next save; a file with no name leaves the name as it is.
+  loadRaw({ format: 'array-shading-scenario', version: 7, name: 'south-5-row-8', saved: '2026-10-19T04:25:16.880Z',
+    inputs: { site: SITE, view: { day: '355', time: '9' } } });
+  expectEq('a loaded scenario names the next save', elements.scName.value, 'south-5-row-8');
+  fire('scSave', 'click'); flush();
+  expectEq('the next save carries the loaded name in the file and its header',
+    /"name": "south-5-row-8"/.test(elements.scText.value) && /Array shading scenario "south-5-row-8"/.test(elements.scText.value), true);
+  elements.scName.value = 'Mine';
+  loadRaw({ format: 'array-shading-scenario', version: 6, saved: '2026-01-01T00:00:00Z',
+    inputs: { site: SITE, view: { day: '355', time: '9' } } });
+  expectEq('a file with no name leaves the name as it is', elements.scName.value, 'Mine');
+
   P.finish();
 })().catch(e => { console.log('smoke threw:', e.stack); process.exitCode = 1; });

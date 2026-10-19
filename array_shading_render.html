@@ -1623,6 +1623,8 @@ if (typeof document !== 'undefined') {
     try { obj = upgradeScenario(parseScenario(text)); } catch (e) { scStatus('Could not load ' + source + ': ' + e.message); return; }
     applyScenarioInputs(obj.inputs || {});
     syncAllSliders();
+    var name = String(obj.name || '').replace(/[\r\n]+/g, ' ').trim();
+    if (name) $('scName').value = name;   // the next save is named for the scenario just loaded
     loadedScenario = obj;
     redraw('full');
     scStatus('Loaded "' + (obj.name || 'scenario') + '" (saved ' + String(obj.saved || '').slice(0, 16).replace('T', ' ') + ').');
@@ -2261,7 +2263,7 @@ if (typeof document !== 'undefined') {
   }
   function loadUsage(text) {
     var parsed = parseUsage(text);
-    if (!parsed.count) { useStatus('No electric usage readings in that text: the file should have rows that start "Electric usage".'); return; }
+    if (!parsed.count) { useStatus('No electric usage readings in that text: the file should have rows that start "Electric usage".'); return false; }
     USE = { days: parsed.days, count: parsed.count };
     useLoads++;
     windowC = null;
@@ -2274,10 +2276,12 @@ if (typeof document !== 'undefined') {
     var N = C.dayOfYear(+last.slice(5, 7), +last.slice(8, 10));
     if (isFinite(N)) $('day').value = String(N);
     redraw('full');
+    return true;
   }
   function clearUsage() {
     USE = null; windowC = null; useStatus('');
     $('useText').value = '';
+    $('useFile').value = '';
     redraw('full');
   }
   // The clear-sky output of each complete day in the file, one day a step (as the year is), so the nets over those days are
@@ -2547,11 +2551,12 @@ if (typeof document !== 'undefined') {
     var f = e.target.files && e.target.files[0];
     if (!f) return;
     var rd = new FileReader();
-    rd.onload = function () { loadUsage(String(rd.result)); };
+    // The picker keeps the name of the file that loaded; a file that does not load empties it.
+    rd.onload = function () { if (!loadUsage(String(rd.result))) e.target.value = ''; };
     rd.readAsText(f);
-    e.target.value = '';
   });
-  $('useLoadText').addEventListener('click', function () { loadUsage($('useText').value); });
+  // Pasted text is not a file, so the picker is emptied.
+  $('useLoadText').addEventListener('click', function () { $('useFile').value = ''; loadUsage($('useText').value); });
   $('useClear').addEventListener('click', clearUsage);
   ['batKwh', 'batDis', 'batChg', 'batEff'].forEach(function (id) { $(id).addEventListener('change', function () { redraw('full'); }); });
   SITE_FIELDS.forEach(function (id) { $(id).value = SITE_DEFAULTS[id]; });

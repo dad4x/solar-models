@@ -119,8 +119,12 @@ const flush = () => { while (pending.length) pending.shift()(); };
 // The lookup's fetch is stubbed: it answers with mockZone, or fails when mockFail is set. Every URL is recorded.
 const state = { mockZone: 'America/Los_Angeles', mockFail: false };
 const fetchUrls = [];
+// A file picker's reader: the file's text arrives on the next flush, as the browser delivers it.
+class FileReaderStub {
+  readAsText(f) { pending.push(() => { this.result = f.text; if (this.onload) this.onload(); }); }
+}
 const ctx = {
-  console: console, Math: Math, JSON: JSON, document: document, setTimeout: fn => pending.push(fn),
+  console: console, Math: Math, JSON: JSON, document: document, setTimeout: fn => pending.push(fn), FileReader: FileReaderStub,
   fetch: url => {
     fetchUrls.push(url);
     if (state.mockFail) return Promise.reject(new Error('offline'));

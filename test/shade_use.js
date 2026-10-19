@@ -141,5 +141,28 @@ const { elements, docListeners, fetchUrls, html, script, ctx, vm, expectEq, fire
   expectEq('dragging the date cursor sets the day', elements.day.value, '200');
   setVal('time', '9'); setVal('day', '355'); fire('day', 'change'); flush();
 
+  // The usage picker shows the file that loaded, as the browser does. A file that does not load empties it, and so do Clear
+  // and Load from text (pasted text is not a file).
+  const pick = (name, lines) => {
+    elements.useFile.value = 'C:\\fakepath\\' + name;
+    elements.useFile.files = [{ name: name, text: ['TYPE,DATE,START TIME,END TIME,USAGE (kWh),COST,NOTES', ...lines].join('\n') }];
+    fireEv('useFile', 'change', { target: elements.useFile }); flush();
+  };
+  pick('usage.csv', useLines('2026-09-20', 96));
+  expectEq('a usage file loads from the picker', /Loaded the usage file: 1 days/.test(elements.useStatus.textContent), true);
+  expectEq('the picker keeps the file that loaded', elements.useFile.value, 'C:\\fakepath\\usage.csv');
+  pick('notes.txt', ['Natural gas usage,2026-09-20,00:00,23:59,3.00,$1.00,']);
+  expectEq('a file with no electric readings is reported', /No electric usage readings/.test(elements.useStatus.textContent), true);
+  expectEq('a file that does not load empties the picker', elements.useFile.value, '');
+  pick('usage.csv', useLines('2026-09-20', 96));
+  fire('useClear', 'click'); flush();
+  expectEq('Clear empties the picker', elements.useFile.value, '');
+  pick('usage.csv', useLines('2026-09-20', 96));
+  elements.useText.value = ['TYPE,DATE,START TIME,END TIME,USAGE (kWh),COST,NOTES', ...useLines('2026-09-21', 96)].join('\n');
+  fire('useLoadText', 'click'); flush();
+  expectEq('Load from text empties the picker', elements.useFile.value, '');
+  expectEq('Load from text still loads the pasted day', /Loaded the usage file: 1 days, Sep 21, 2026/.test(elements.useStatus.textContent), true);
+  fire('useClear', 'click'); flush();
+
   P.finish();
 })().catch(e => { console.log('smoke threw:', e.stack); process.exitCode = 1; });
