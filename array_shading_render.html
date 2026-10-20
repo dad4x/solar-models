@@ -100,7 +100,7 @@ h1 .info{width:20px;height:20px;font-size:12px;margin-left:8px}
 .rowhead,.rowbox{display:grid;grid-template-columns:220px minmax(0,1fr);gap:0 10px;align-items:center}
 .rowhead{font-size:11px;color:var(--muted);padding:2px 10px 3px}
 .rowbox{margin:0 0 3px;padding:0}
-.rowbox > .bhead{border-bottom:0;padding:4px 8px;min-width:0}
+.rowbox > .bhead{border-bottom:0;padding:4px 8px;min-width:0;flex-wrap:wrap}
 .rowbox > .bhead .btitle{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .rowbox > .bbody{padding:2px 8px 2px 0;min-width:0}
 .rowbox .fields,.rowhead .fields{display:grid;grid-template-columns:70px repeat(6,minmax(0,1fr));gap:0 8px;align-items:center}
@@ -110,6 +110,9 @@ h1 .info{width:20px;height:20px;font-size:12px;margin-left:8px}
 .rowbox .kc{display:flex;flex-direction:row;align-items:center;gap:4px;min-width:0}
 .rowbox .kc input.kr{flex:1 1 0;min-width:28px;width:auto;margin:0}
 .rowbox .kc input[type=number]{flex:0 0 54px;width:54px;font-size:12px;padding:2px 3px}
+.rowsctl{flex:1 1 100%;min-width:0;max-width:100%;display:flex;align-items:center;gap:6px;font-size:12px;color:var(--muted)}
+.rowsctl .kc{flex:1 1 0;min-width:0}
+.rowsctl input.kr{min-width:0;width:auto}
 .season{color:var(--accent);font-weight:600;font-size:13px}
 .seasons{position:relative;height:34px;margin-top:2px}
 .seasons span{position:absolute;top:0;transform:translateX(-50%);font-size:10px;line-height:1.2;color:var(--muted);text-align:center;white-space:nowrap}
@@ -456,21 +459,24 @@ var CORE = (function () {
         mods.push(mk(group, [xBase, ys, zb], [sgn * L * cb, 0, L * sb], [0, W, 0], [-sgn * sb, 0, cb]));
       }
     }
-    // N and S rows (face S): the west end and base edge are placed; the modules step east from the west end. Two rows (r.two)
-    // are one unit: a second row of the same modules sits up the tilt from the first, one module's long side and the gap on.
+    // N and S rows (face S): the west end and base edge are placed; the modules step east from the west end. Several rows (r.rows,
+    // 1 to 4) are one unit: each further row of the same modules sits up the tilt from the one before, one module's long side and
+    // the gap on.
     function addNS(group, r) {
       var n = r.n !== undefined ? r.n : DEFAULT_N[group];
       var beta = r.tilt * D2R, cb = Math.cos(beta), sb = Math.sin(beta), dz = r.dz || 0;
       var xStart = DEF_BASE[group][0] + r.dx, y = DEF_BASE[group][1] + r.dy;
       var len = n * W + (n - 1) * r.gap, mid = xStart + len / 2;
       var up = [0, (L + r.gap) * cb, (L + r.gap) * sb];   // from one row to the next, up the tilt
+      var k = Math.max(1, Math.min(8, Math.round(r.rows || 1)));   // rows in the unit
       for (var i = 0; i < n; i++) {
         var xs = xStart + i * (W + r.gap);
         var xc = xs + W / 2;
         var dzOff = n > 1 ? dz * (xc - mid) / (len - W) : 0;
         var P = [xs, y, gz(y) + r.base + dzOff];
-        mods.push(mk(group, P, [0, L * cb, L * sb], [W, 0, 0], [0, -sb, cb]));
-        if (r.two) mods.push(mk(group, [P[0] + up[0], P[1] + up[1], P[2] + up[2]], [0, L * cb, L * sb], [W, 0, 0], [0, -sb, cb]));
+        for (var j = 0; j < k; j++) {   // the rows of the unit, each one step further up the tilt
+          mods.push(mk(group, [P[0] + j * up[0], P[1] + j * up[1], P[2] + j * up[2]], [0, L * cb, L * sb], [W, 0, 0], [0, -sb, cb]));
+        }
       }
     }
     if (rows.OL && rows.OL.on) addEW('OL', rows.OL);
@@ -826,14 +832,15 @@ if (typeof document !== 'undefined') {
     dz: { min: 0, max: 10, step: 0.1 },
     gap: { min: 0, max: 24, step: 0.1 },
     pos: { min: 0, max: 100, step: 0.1 },
-    move: { min: -10, max: 10, step: 0.1 }
+    move: { min: -10, max: 10, step: 0.1 },
+    rows: { min: 1, max: 8, step: 1 }
   };
   function round3(x) { return Math.round(x * 1000) / 1000; }
   // Default settings for one row. Gaps are the as-drawn spacing in inches. right and up are the baseline location.
   var GAP_IN = { OL: 10.068, IL: 13.772, IR: 13.772, OR: 10.068, N: 8.327, NI: 8.327, SI: 8.327, S: 8.327, X1: 8.327, X2: 8.327, X3: 8.327, X4: 8.327 };
   function defRow(g, base, on) {
     var b = C.DEF_BASE[g];
-    return { on: on, n: C.DEFAULT_N[g], base: base, tilt: 45, dz: 0, gap: GAP_IN[g], right: b[0], up: b[1], two: false };
+    return { on: on, n: C.DEFAULT_N[g], base: base, tilt: 45, dz: 0, gap: GAP_IN[g], right: b[0], up: b[1], rows: 1 };
   }
   // Original: all rows as drawn. Alternative: inner columns 2 ft higher, north row with them; the extra inner north and
   // south rows and the extra north rows are off.
@@ -857,9 +864,11 @@ if (typeof document !== 'undefined') {
   };
 
   // A numeric field with a slider above it; the slider mirrors the number box.
-  function knobCell(id, value, rng) {
+  // bounded: the number box takes the range's min and max too, so its up and down arrows stop at the range (rows).
+  function knobCell(id, value, rng, bounded) {
+    var lim = bounded ? ' min="' + rng.min + '" max="' + rng.max + '"' : '';
     return '<div class="kc"><input type="range" class="kr" id="' + id + '_sl" data-target="' + id + '" min="' + rng.min +
-      '" max="' + rng.max + '" step="' + rng.step + '"><input type="number" step="' + rng.step + '" id="' + id +
+      '" max="' + rng.max + '" step="' + rng.step + '"><input type="number"' + lim + ' step="' + rng.step + '" id="' + id +
       '" value="' + value + '"></div>';
   }
   function copyFromSlider(s) {
@@ -896,11 +905,11 @@ if (typeof document !== 'undefined') {
       fld('Up (+N), ft (-10 to 10)', knobCell(prefix + 'all_dy', 0, KNOB_RANGES.move)) + '</div></section>';
     ROWS.forEach(function (r) {
       var d = defs[r.g], id = 'rb_' + prefix + r.g;
-      var two = r.ns ? '<label class="two" title="Two rows, tilted as a unit: a second row of the same panels sits up the tilt from this one">' +
-        '<input type="checkbox" id="' + prefix + r.g + '_two"' + (d.two ? ' checked' : '') + '> 2 rows</label>' : '';
+      var rowsCtl = r.ns ? '<div class="rowsctl" title="Rows tilted as a unit: each further row of the same panels sits up the tilt from the one before">' +
+        '<span class="cl">Rows</span>' + knobCell(prefix + r.g + '_rows', d.rows || 1, KNOB_RANGES.rows, true) + '</div>' : '';
       h += '<section class="box rowbox' + (d.on ? '' : ' collapsed') + '" id="' + id + '"><div class="bhead">' + tog(id) +
         '<input type="checkbox" id="' + prefix + r.g + '_on"' + (d.on ? ' checked' : '') + '>' +
-        '<span class="btitle">' + r.label + '</span>' + two + '</div><div class="bbody fields">' +
+        '<span class="btitle">' + r.label + '</span>' + rowsCtl + '</div><div class="bbody fields">' +
         fld('Panels', '<input type="number" min="0" step="1" id="' + prefix + r.g + '_n" value="' + d.n + '">') +
         fld('Base, ft (0 to 15)', knobCell(prefix + r.g + '_base', d.base, KNOB_RANGES.base)) +
         fld('Tilt, degrees (-90 to 90)', knobCell(prefix + r.g + '_tilt', d.tilt, KNOB_RANGES.tilt)) +
@@ -978,7 +987,7 @@ if (typeof document !== 'undefined') {
     location: "Latitude and longitude as map apps show them, so south and west are negative. Changing either one looks up the time zone, which sets the clock labels and daylight time; the lookup sends only those two numbers to open-meteo.com. You can also type a zone or pick one from the list, which works offline. The zone is saved in each scenario file.",
     north: "The true north offset is the clockwise angle from graph north (the sketch's up) to true north. 0 means the sketch is north-up. Each view's rose shows true north. Turn the rose with its two arrows (15 degrees a click, 1 with shift), or type the offset here. The offset is saved with the scenario.",
     site: "Ground albedo (0.40) is a placeholder; set it for your surface. Bifaciality scales the rear face. Output = irradiance × rating ÷ 1000 × system factor, so the rating is the front STC power over 2.205 m² (22.7% at 500 W). The system factor (0.85) is a placeholder for temperature, soiling, inverter, and wiring losses. The height cap is checked two ways: from the grade under each row, or from the lowest grade on the site. Set the site rise to 0 to remove the slope. The height cap and setbacks are inputs; check them against the local code.",
-    rows: "Base = lowest edge above grade (north and south rows: at the row's middle). Height difference = first to last module, + = east higher. Gap = space between modules in a row, in inches. Panels = modules in the row. Right and up place each row's base corner on graph paper, measured from the origin 0,0 at the south-west corner of the sketch; the defaults are the baseline locations. Panels and gap extend a column north, and a row east, from that corner. Turn the inner north and south rows on to try four rows in the north-south direction, with the columns off. Add row switches on the next off row and opens it. The four extra rows come after the south row and start north of the north row, 12 ft apart. Add column does the same for the next off column. All rows moves every row together, right (+E) and up (+N). Each setting has a slider beside its number box. On a wide screen the column names sit above the rows, and each name's tooltip gives its range; type a value in a box for anything outside a slider's range. Drag a row's modules in either view to move that row: its right and up follow the pointer, to 0.1 ft. The 2 rows box on a north or south row makes two rows tilted as a unit: a second row of the same panels sits up the tilt from the first, one panel's long side and the gap further on, so the pair tilts, moves, and takes its height difference together. The gap box sets the space between the rows as well as between panels.",
+    rows: "Base = lowest edge above grade (north and south rows: at the row's middle). Height difference = first to last module, + = east higher. Gap = space between modules in a row, in inches. Panels = modules in the row. Right and up place each row's base corner on graph paper, measured from the origin 0,0 at the south-west corner of the sketch; the defaults are the baseline locations. Panels and gap extend a column north, and a row east, from that corner. Turn the inner north and south rows on to try four rows in the north-south direction, with the columns off. Add row switches on the next off row and opens it. The four extra rows come after the south row and start north of the north row, 12 ft apart. Add column does the same for the next off column. All rows moves every row together, right (+E) and up (+N). Each setting has a slider beside its number box. On a wide screen the column names sit above the rows, and each name's tooltip gives its range; type a value in a box for anything outside a slider's range. Drag a row's modules in either view to move that row: its right and up follow the pointer, to 0.1 ft. The Rows box on a north or south row sets how many rows it has, from 1 to 8, tilted as a unit: each further row of the same panels sits up the tilt from the one before, one panel's long side and the gap further on, so the rows tilt, move, and take their height difference together. The gap box sets the space between the rows as well as between panels.",
     time: "Local clock time in the time zone under Location, with that zone's daylight time for 2026. Drag the cursor on the time graph, or press anywhere on it, to set the clock time: 5 am at the left and 9 pm at the right, which covers sunrise and sunset on June 21 at the default site. The sun is computed from apparent solar time, so the time zone changes the clock labels, not the energy.",
     graph: "The projected output of the selected layout for this day, in kW at each clock time, on a clock scale from 5 am to 9 pm. It comes from the same clear-sky model as the day total, so the area under the curve is the day's output in kWh. Plan and Alternative choose the layout. The orange use line is the day's readings from the use file, in kW on the same clock. Battery for net zero, which needs a complete day of use readings: the peak discharge is the largest quarter-hour shortfall of the array against use, in kW, which is the power a battery must supply at that moment. The storage is the swing of the day's running balance (output minus use, in kWh), from its lowest point to its highest: the most energy a battery must hold at once to cover every shortfall from earlier surplus. A battery moves energy in time; it cannot create it. So the day's net is not the storage. A net import cannot be closed by any battery, and a net export is usually far smaller than the storage, because the house draws at night when the array makes nothing. These figures are ideal: no losses, no power limit, and the day is treated alone. The lines on this graph: <i class='sw' style='background:#2f6fb0'></i> projected output; <i class='sw' style='background:#c0502d'></i> the use from the use file; <i class='sw' style='background:#8e44ad'></i> the battery, under the battery limits in the Use data box: above zero it discharges to the house, below zero it charges from the array; <i class='sw' style='background:none;border:none;border-top:2px dotted #8e44ad;height:0'></i> the battery's charge, from 0% at the zero line to 100% (full) at the 20 kW line; <i class='sw' style='background:#138a72'></i> the net grid flow after the battery, where above zero is import from the grid and below zero is export after the battery has charged. The grey line marks zero: battery labels on its left, grid labels on its right.",
     dategraph: "The projected output of the selected layout for each month, in kWh. Each point is the month's total, the number on its monthly label, worked out for the 15th of the month and scaled by the days in the month. The points sit on the day slider's scale; the line between them is a guide. The marker is the selected day, and the reading is its month's total. Plan and Alternative choose the layout for both graphs. The orange use line is the monthly use from the use file, for each month the file completes. By month: <i class='sw' style='background:#2f6fb0'></i> projected output; <i class='sw' style='background:#c0502d'></i> the use from the use file; <i class='sw' style='background:#8e44ad'></i> the battery's discharge to the house, under the battery limits; <i class='sw' style='background:#138a72'></i> the net with the battery, where below zero means more was exported than imported.",
@@ -1046,7 +1055,7 @@ if (typeof document !== 'undefined') {
         gap: num(prefix + r.g + '_gap', 0) / 12,   // the box is in inches; the layout is in feet
         dx: num(prefix + r.g + '_right', b[0]) - b[0] + ax,
         dy: num(prefix + r.g + '_up', b[1]) - b[1] + ay,
-        two: r.ns && $(prefix + r.g + '_two').checked   // north and south rows only: two rows, tilted as a unit
+        rows: r.ns ? Math.min(8, Math.max(1, parseInt($(prefix + r.g + '_rows').value, 10) || 1)) : 1   // north and south rows: rows tilted as a unit
       };
     });
     return rows;
@@ -1567,7 +1576,7 @@ if (typeof document !== 'undefined') {
       ROWS.forEach(function (r) {
         var rr = { on: $(pre + r.g + '_on').checked };
         ROW_FIELDS.forEach(function (f) { rr[f] = $(pre + r.g + '_' + f).value; });
-        if (r.ns) { rr.dz = $(pre + r.g + '_dz').value; rr.two = $(pre + r.g + '_two').checked; }
+        if (r.ns) { rr.dz = $(pre + r.g + '_dz').value; rr.rows = Math.min(8, Math.max(1, parseInt($(pre + r.g + '_rows').value, 10) || 1)); }
         s.rows[r.g] = rr;
       });
       out[side[0]] = s;
@@ -1588,7 +1597,7 @@ if (typeof document !== 'undefined') {
         var on = $(pre + r.g + '_on');
         if (on && rr.on !== undefined) on.checked = !!rr.on;
         ROW_FIELDS.forEach(function (f) { setv(pre + r.g + '_' + f, rr[f]); });
-        if (r.ns) { setv(pre + r.g + '_dz', rr.dz); $(pre + r.g + '_two').checked = !!rr.two; }   // files before two rows have none
+        if (r.ns) { setv(pre + r.g + '_dz', rr.dz); setv(pre + r.g + '_rows', Math.min(8, Math.max(1, rr.rows || (rr.two ? 2 : 1)))); }   // files from before the rows box: one row, or two for the checkbox
         syncRowBox(pre, r.g);
       });
     });
@@ -2676,6 +2685,7 @@ if (typeof document !== 'undefined') {
     });
     $(id).addEventListener('change', function (e) {
       var t = e && e.target;
+      if (t && /_rows$/.test(t.id || '')) t.value = String(Math.min(8, Math.max(1, parseInt(t.value, 10) || 1)));   // typed rows stay 1 to 8
       if (t && t.type === 'checkbox') { if (/_on$/.test(t.id)) { syncRowBox(t.id.slice(0, 2), t.id.slice(2, -3)); syncAddButtons(); } }
       else if (t && t.classList && t.classList.contains('kr')) copyFromSlider(t);
       else if (t && t.id) syncSliderFor(t);
