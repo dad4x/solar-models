@@ -5,7 +5,7 @@ const { spawn } = require('child_process');
 const path = require('path');
 
 const files = ['shade_rows_check.js', 'shade_setup.js', 'shade_scenarios.js', 'shade_rows.js', 'shade_cap_graphs.js',
-  'shade_use.js', 'shade_drag.js', 'shade_photo.js'];
+  'shade_use.js', 'shade_drag.js', 'shade_photo.js', 'shade_twin.js'];
 const started = Date.now();
 
 Promise.all(files.map(name => new Promise(resolve => {

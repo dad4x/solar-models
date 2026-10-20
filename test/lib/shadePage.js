@@ -95,6 +95,7 @@ for (const [pre, base] of [['o_', BASE_O], ['a_', BASE_A]]) {
     defaults[pre + g + '_right'] = { value: String(RIGHT[g]) };
     defaults[pre + g + '_up'] = { value: String(UP[g]) };
     if (DNS.indexOf(g) >= 0) defaults[pre + g + '_dz'] = { value: '0' };
+    if (DNS.indexOf(g) >= 0) defaults[pre + g + '_two'] = { checked: false, type: 'checkbox' };
     // The slider over each number box: the page keeps the two in step (a drag sets the number box and then its slider).
     for (const k of ['base', 'tilt', 'gap', 'right', 'up'].concat(DNS.indexOf(g) >= 0 ? ['dz'] : [])) {
       defaults[pre + g + '_' + k + '_sl'] = {};
