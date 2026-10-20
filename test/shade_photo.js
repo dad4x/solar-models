@@ -2,7 +2,7 @@
 // and scroll that move and scale it. A press on a module still moves that module's row. A part of the render page checks.
 // test/run-parallel.js runs it in its own process, on a fresh page (see lib/shadePage.js).
 const P = require('./lib/shadePage.js');
-const { elements, expectEq, fire, fireEv, setVal, setChk, flush } = P;
+const { elements, expectEq, fire, fireEv, setVal, setChk, flush, state } = P;
 (async () => {
   P.runPage(); flush();
   expectEq('the photo controls are off until a photo loads', [elements.bgWidth.disabled, elements.bgDrag.disabled].join(' '), 'true true');
@@ -19,7 +19,7 @@ const { elements, expectEq, fire, fireEv, setVal, setChk, flush } = P;
   const images = id => (elements[id]._ctx.__images || []).length;
   // Forgets what the views drew, then redraws them with the photo's current width (a change to the width redraws the views).
   const redrawViews = () => {
-    ['cO', 'cA'].forEach(id => { elements[id]._ctx.__texts = []; elements[id]._ctx.__fills = []; elements[id]._ctx.__images = []; });
+    ['cO', 'cA'].forEach(id => { elements[id]._ctx.__texts = []; elements[id]._ctx.__fills = []; elements[id]._ctx.__images = []; elements[id]._ctx.__rects = []; });
     setVal('bgWidth', elements.bgWidth.value); fire('bgWidth', 'change'); flush();
   };
   // Is point p inside the convex quad q (4 points, in order)?
@@ -57,6 +57,16 @@ const { elements, expectEq, fire, fireEv, setVal, setChk, flush } = P;
   const key0 = elements.cO._photo.key;
   setVal('bgWidth', '160'); fire('bgWidth', 'change'); flush();
   expectEq('a new width redraws the photo layer', elements.cO._photo.key !== key0 && elements.bgWidth.value === '160', true);
+
+  // Under the scale: where the view is dark, the scale sits on a white band (a white rectangle narrower than the view); where it is
+  // light, there is no band.
+  const bands = id => (elements[id]._ctx.__rects || []).filter(r => r.fill === '#ffffff' && r.w < elements[id].width);
+  state.dark = true;
+  redrawViews();
+  expectEq('under a dark view, the scale sits on a white band in both views', bands('cO').length > 0 && bands('cA').length > 0, true);
+  state.dark = false;
+  redrawViews();
+  expectEq('under a light view, the scale has no band', bands('cO').length === 0 && bands('cA').length === 0, true);
 
   // With the drag box off, a drag orbits the view and leaves the photo where it is.
   const cam0 = JSON.stringify(elements.cO._view.Cam);

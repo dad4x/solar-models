@@ -19,6 +19,17 @@ function makeCtx2d() {
       // The pictures drawn, and the colour each fill used, so a test can see the photo and the sand ground.
       if (k === 'drawImage') { t[k] = img => { (t.__images = t.__images || []).push(img); }; return t[k]; }
       if (k === 'fill') { t[k] = () => { (t.__fills = t.__fills || []).push(t.fillStyle); }; return t[k]; }
+      // The rectangles drawn, with their fill colour, so a test can see a white band; and the pixels read back, which are dark
+      // or light as the test sets state.dark (the view under a scale).
+      if (k === 'fillRect') { t[k] = (x, y, w, h) => { (t.__rects = t.__rects || []).push({ x: x, y: y, w: w, h: h, fill: t.fillStyle }); }; return t[k]; }
+      if (k === 'getImageData') {
+        t[k] = (x, y, w, h) => {
+          const v = state.dark ? 30 : 220, data = new Uint8ClampedArray(w * h * 4);
+          for (let i = 0; i < data.length; i += 4) { data[i] = v; data[i + 1] = v; data[i + 2] = v; data[i + 3] = 255; }
+          return { data: data };
+        };
+        return t[k];
+      }
       t[k] = () => {};
       return t[k];
     },
@@ -123,7 +134,7 @@ const document = {
 const pending = [];
 const flush = () => { while (pending.length) pending.shift()(); };
 // The lookup's fetch is stubbed: it answers with mockZone, or fails when mockFail is set. Every URL is recorded.
-const state = { mockZone: 'America/Los_Angeles', mockFail: false };
+const state = { mockZone: 'America/Los_Angeles', mockFail: false, dark: false };
 const fetchUrls = [];
 // A file picker's reader: the file's text arrives on the next flush, as the browser delivers it.
 class FileReaderStub {
