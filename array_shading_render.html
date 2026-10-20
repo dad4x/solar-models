@@ -145,7 +145,7 @@ h1 .info{width:20px;height:20px;font-size:12px;margin-left:8px}
 <body>
 <main>
 <h1>Array shading: plan vs alternative <button class="info" type="button" data-help="about" aria-label="Help: about this render">i</button></h1>
-<p class="lead">Plan and alternative bifacial ground-mount layouts: sun and shade by time of day, and clear-sky output by day, month, and year. Drag a row's modules to move that row; drag elsewhere in a view to orbit it, and scroll to zoom. Drag the cursor on either graph to set the time or the date. Tap or hover an (i) for help.</p>
+<p class="lead">Plan and alternative bifacial ground-mount layouts: sun and shade by time of day, and clear-sky output by day, month, and year. Drag a row's modules to move that row; drag elsewhere in a view to orbit it, and scroll to zoom. With a background photo, ticking its drag box makes a drag move the photo, and scrolling scales it. Drag the cursor on either graph to set the time or the date. Tap or hover an (i) for help.</p>
 
 <fieldset class="box" id="boxScen">
 <legend><button class="tog" type="button" data-tog="boxScen"></button>Scenario: save or load parameters and summary results (.js) <button class="info" type="button" data-help="scenario" aria-label="Help: scenario">i</button></legend>
@@ -194,6 +194,23 @@ h1 .info{width:20px;height:20px;font-size:12px;margin-left:8px}
 </fieldset>
 
 
+<fieldset class="box" id="boxBg">
+<legend><button class="tog" type="button" data-tog="boxBg"></button>Background photo: an aerial image behind the render, read in this browser only <button class="info" type="button" data-help="background" aria-label="Help: background photo">i</button></legend>
+<div class="row">
+<label>Photo file (JPEG or PNG) <input id="bgFile" type="file" accept="image/*"></label>
+<button id="bgClear" type="button">Clear</button>
+<span id="bgStatus" class="note"></span>
+</div>
+<div class="row" style="margin-top:8px">
+<label>Width of the photo, ft <input id="bgWidth" type="number" min="1" step="1" style="width:90px"></label>
+<label>Centre east of the origin, ft <input id="bgEast" type="number" step="0.5" style="width:90px"></label>
+<label>Centre north of the origin, ft <input id="bgNorth" type="number" step="0.5" style="width:90px"></label>
+</div>
+<div class="row" style="margin-top:6px">
+<label><input id="bgDrag" type="checkbox"> Drag moves the photo instead of orbiting the view; scrolling scales it</label>
+</div>
+<p class="note">The photo lies on the ground, turned to true north. Set its width so a known distance on it matches the dimension scale, which runs east and west along the south edge of each view.</p>
+</fieldset>
 <fieldset class="box" id="boxUse">
 <legend><button class="tog" type="button" data-tog="boxUse"></button>Use data: your meter file, read in this browser and not uploaded <button class="info" type="button" data-help="use" aria-label="Help: use data">i</button></legend>
 <div class="row">
@@ -775,6 +792,8 @@ if (typeof document !== 'undefined') {
   function $(id) { return document.getElementById(id); }
   var cam = { az: 135, el: 32, zoom: 1 };
   var STRIP_CAM = { az: 135, el: 34, zoom: 1 };
+  // The background photo, when one is loaded (see photoLayer). bgId changes when a photo loads, so the cached layers redraw.
+  var BG = null, bgId = 0;
   var TIMES = [9.0, 10.5, 12.0, 13.5, 15.0];
   var MDAYS = [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
   var MNAMES = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
@@ -958,6 +977,7 @@ if (typeof document !== 'undefined') {
     graph: "The projected output of the selected layout for this day, in kW at each clock time, on a clock scale from 5 am to 9 pm. It comes from the same clear-sky model as the day total, so the area under the curve is the day's output in kWh. Plan and Alternative choose the layout. The orange use line is the day's readings from the use file, in kW on the same clock. Battery for net zero, which needs a complete day of use readings: the peak discharge is the largest quarter-hour shortfall of the array against use, in kW, which is the power a battery must supply at that moment. The storage is the swing of the day's running balance (output minus use, in kWh), from its lowest point to its highest: the most energy a battery must hold at once to cover every shortfall from earlier surplus. A battery moves energy in time; it cannot create it. So the day's net is not the storage. A net import cannot be closed by any battery, and a net export is usually far smaller than the storage, because the house draws at night when the array makes nothing. These figures are ideal: no losses, no power limit, and the day is treated alone. The lines on this graph: <i class='sw' style='background:#2f6fb0'></i> projected output; <i class='sw' style='background:#c0502d'></i> the use from the use file; <i class='sw' style='background:#8e44ad'></i> the battery, under the battery limits in the Use data box: above zero it discharges to the house, below zero it charges from the array; <i class='sw' style='background:none;border:none;border-top:2px dotted #8e44ad;height:0'></i> the battery's charge, from 0% at the zero line to 100% (full) at the 20 kW line; <i class='sw' style='background:#138a72'></i> the net grid flow after the battery, where above zero is import from the grid and below zero is export after the battery has charged. The grey line marks zero: battery labels on its left, grid labels on its right.",
     dategraph: "The projected output of the selected layout for each month, in kWh. Each point is the month's total, the number on its monthly label, worked out for the 15th of the month and scaled by the days in the month. The points sit on the day slider's scale; the line between them is a guide. The marker is the selected day, and the reading is its month's total. Plan and Alternative choose the layout for both graphs. The orange use line is the monthly use from the use file, for each month the file completes. By month: <i class='sw' style='background:#2f6fb0'></i> projected output; <i class='sw' style='background:#c0502d'></i> the use from the use file; <i class='sw' style='background:#8e44ad'></i> the battery's discharge to the house, under the battery limits; <i class='sw' style='background:#138a72'></i> the net with the battery, where below zero means more was exported than imported.",
     use: "Load the usage file from PG&amp;E: the electric interval CSV, with 15-minute readings. This page reads it in your browser, and nothing is uploaded or saved. The page is public, so keep the file out of the repository. The orange use line on the time graph is the day's readings in kW, on the same clock as the output. The net is use minus the clear-sky output for the same day: + is net import from the grid, − is net export. The summary covers the complete days in the file, a day being complete with 92 or more readings. The battery rows over the year take the worst quarter hour and the worst day of the complete days, each day set against its month's clear-sky output (the 15th of the month), so they are an estimate; the day line uses the day's own output. The battery rows run a battery with the limits in the Use data box (usable kWh, max discharge and max charge in kW, and round-trip efficiency; a usable capacity of zero is no battery) through the file's days in order, starting empty and carrying its charge from day to day. A surplus charges it and the rest is exported; a shortfall draws on it and the rest is imported. Net is import minus export. A battery only moves energy in time, so with no losses the net changes only by what it holds at the end; the losses raise the net import, while the import and export both fall where the battery covers them. The battery figures use each month's clear-sky profile, except the selected day, which uses its own output.",
+    background: "An aerial photo behind the render, read in this browser and not uploaded or saved with the scenario. It lies on the ground under the arrays, turned to true north with the true north offset, and it shows through where the sand ground would be. The dimension scale runs east and west along the south edge of each view, in feet east of the origin. Set the width so a known distance on the photo, such as a row's length or a fence, matches the same distance on the scale. Tick the drag box to drag the photo in a view instead of orbiting it; scrolling then scales it about the point under the pointer. A row's own modules still move that row. The centre is in feet east and north of the origin, and each number can be typed.",
     day: "Monthly and yearly totals use the 15th of each month, scaled by the days in that month; checked at the default site against every day of the year, each month is within 2% and the year within 0.1%. Drag the cursor on the date graph, or press anywhere on it, to set the day. The markers show the equinoxes and solstices for 2026; an equinox can fall a day earlier or later by time zone.",
     method: "Geometry: row positions are read from your sketch, so measure them to confirm. Each row's base corner is placed from the origin 0,0 on graph paper (east and north positive); the baseline locations are the defaults. Base elevation is the lowest edge above local grade; for the north and south rows it is at the middle of the row, and the height difference runs from the first module to the last, each module level across its own width. Shading uses the sun path for the location, the east wall (if on), and the modules only: no trees, house, or neighbor structures. True north is the sketch's up turned by the true north offset (0 by default), and the sun path follows it. Output is a clear-sky estimate: direct beam, sky diffuse, and ground-reflected light on each face, with the back face scaled by the bifaciality input. Ground reflection is ray-traced from each face to the ground it sees; each ground point is tested for direct sun against the array and the wall, and the sky diffuse reaching that ground is not reduced by the array."
   };
@@ -1149,7 +1169,9 @@ if (typeof document !== 'undefined') {
     var ground = [[-10, -12], [60, -12], [60, 60], [-10, 60]].map(function (q) {
       return V.P([q[0], q[1], gz(q[1])]);
     });
-    fillPoly(ctx, ground, '#e9e0c9', null, 0);
+    // The ground is sand, unless a background photo is loaded: then the photo shows through where the ground would be.
+    var layer = BG ? photoLayer(canvas, V, gz, info.north) : null;
+    if (layer) ctx.drawImage(layer, 0, 0); else fillPoly(ctx, ground, '#e9e0c9', null, 0);
     if (sun.alt > 0) {
       var shapes = sc.mods.map(function (M) { return M.corners; });
       if (sc.wall.on) {
@@ -1166,6 +1188,7 @@ if (typeof document !== 'undefined') {
       });
       ctx.fillStyle = 'rgba(25,31,43,0.28)'; ctx.fill();
     }
+    if (layer && info.scale) drawScale(ctx, V, gz);   // the dimension scale, on the ground under the arrays
     var objs = [];
     sc.mods.forEach(function (M, idx) {
       var pts = M.corners.map(function (q) { return V.P(q); });
@@ -1286,6 +1309,75 @@ if (typeof document !== 'undefined') {
     };
   }
 
+  // The background photo as a view shows it. It lies on the ground, turned to true north: its centre is BG.east and BG.north
+  // feet from the origin, and it is BG.widthFt wide. A grid over it is projected, and each cell of the photo is drawn into the
+  // screen quadrilateral it falls on, as two triangles, so the view's perspective holds. The layer is cached on the canvas, and
+  // redrawn only when the view, the photo, or the ground changes.
+  function photoLayer(canvas, V, gz, north) {
+    var W = canvas.width, H = canvas.height, n = W > 400 ? 12 : 6, src = BG.src, pw = src.width, ph = src.height;
+    var s = BG.widthFt / pw, t = (north || 0) * Math.PI / 180;
+    var ex = Math.cos(t), ey = -Math.sin(t), nx = Math.sin(t), ny = Math.cos(t);   // the photo's east and north, in feet
+    // The ground point under a pixel of the photo: u runs east across it, and v runs south down it.
+    function onGround(u, v) {
+      var de = (u - pw / 2) * s, dn = -(v - ph / 2) * s, y = BG.north + de * ey + dn * ny;
+      return [BG.east + de * ex + dn * nx, y, gz(y)];
+    }
+    var grid = [];
+    for (var j = 0; j <= n; j++) {
+      for (var i = 0; i <= n; i++) grid.push(V.P(onGround(pw * i / n, ph * j / n)));
+    }
+    var key = [W, H, BG.id, grid.map(function (p) { return p[0].toFixed(1) + ',' + p[1].toFixed(1); }).join(' ')].join('|');
+    if (canvas._photo && canvas._photo.key === key) return canvas._photo.layer;
+    var layer = document.createElement('canvas');
+    layer.width = W; layer.height = H;
+    var g = layer.getContext('2d');
+    function at(i, j) { return grid[j * (n + 1) + i]; }
+    var cw = pw / n, chh = ph / n;
+    for (var b = 0; b < n; b++) {
+      for (var a = 0; a < n; a++) {
+        var u0 = a * cw, u1 = (a + 1) * cw, v0 = b * chh, v1 = (b + 1) * chh;
+        drawPiece(g, src, [[u0, v0], [u1, v0], [u1, v1]], [at(a, b), at(a + 1, b), at(a + 1, b + 1)]);
+        drawPiece(g, src, [[u0, v0], [u1, v1], [u0, v1]], [at(a, b), at(a + 1, b + 1), at(a, b + 1)]);
+      }
+    }
+    canvas._photo = { key: key, layer: layer };
+    return layer;
+  }
+  // One triangle of the photo, from the photo's pixels s to the screen points d. The affine map that takes s to d is set on the
+  // context, and the triangle is clipped out, so the photo lands on its piece of the screen.
+  function drawPiece(g, img, s, d) {
+    var ax = s[1][0] - s[0][0], ay = s[1][1] - s[0][1], bx = s[2][0] - s[0][0], by = s[2][1] - s[0][1];
+    var det = ax * by - ay * bx;
+    if (Math.abs(det) < 1e-9) return;
+    var cx = d[1][0] - d[0][0], cy = d[1][1] - d[0][1], dx = d[2][0] - d[0][0], dy = d[2][1] - d[0][1];
+    var m00 = (cx * by - dx * ay) / det, m01 = (ax * dx - bx * cx) / det;
+    var m10 = (cy * by - dy * ay) / det, m11 = (ax * dy - bx * cy) / det;
+    var e = d[0][0] - (m00 * s[0][0] + m01 * s[0][1]), f = d[0][1] - (m10 * s[0][0] + m11 * s[0][1]);
+    g.save();
+    g.beginPath(); g.moveTo(d[0][0], d[0][1]); g.lineTo(d[1][0], d[1][1]); g.lineTo(d[2][0], d[2][1]); g.closePath(); g.clip();
+    g.setTransform(m00, m10, m01, m11, e, f);
+    g.drawImage(img, 0, 0);
+    g.restore();
+  }
+  // The dimension scale: a line along the ground's south edge, east to west, with a tick every 2 ft and a label every 10 ft in
+  // feet east of the origin. It lies on the ground, so it lines up with the photo under it.
+  function drawScale(ctx, V, gz) {
+    var y = -12, x0 = -10, x1 = 60;
+    function at(x, yy) { return V.P([x, yy, gz(yy)]); }
+    ctx.save();
+    ctx.strokeStyle = '#1d2430'; ctx.fillStyle = '#1d2430'; ctx.lineWidth = 1;
+    ctx.font = '11px system-ui'; ctx.textAlign = 'center'; ctx.textBaseline = 'top';
+    var a = at(x0, y), b = at(x1, y);
+    ctx.beginPath(); ctx.moveTo(a[0], a[1]); ctx.lineTo(b[0], b[1]); ctx.stroke();
+    for (var x = x0; x <= x1; x += 2) {
+      var major = x % 10 === 0, p = at(x, y), q = at(x, y - (major ? 3 : 1.5));
+      ctx.beginPath(); ctx.moveTo(p[0], p[1]); ctx.lineTo(q[0], q[1]); ctx.stroke();
+      if (major) ctx.fillText(String(x), q[0], q[1] + 1);
+    }
+    var m = at(25, y - 7);
+    ctx.fillText('scale, ft east of the origin', m[0], m[1]);
+    ctx.restore();
+  }
   function fillPoly(ctx, pts, fill, stroke, lw) {
     ctx.beginPath();
     pts.forEach(function (p, i) { if (i === 0) ctx.moveTo(p[0], p[1]); else ctx.lineTo(p[0], p[1]); });
@@ -1706,11 +1798,11 @@ if (typeof document !== 'undefined') {
     var enO = dd ? dd.en.original : null, enA = dd ? dd.en.alternative : null;
     var outO = nowOutput(sc.original, sun, shO, prm), outA = nowOutput(sc.alternative, sun, shA, prm);
     var info = { cap: prm.cap, meas: prm.meas, north: prm.site.trueNorthOffset };
-    drawScene($('cO'), sc.original, sun, shO, cam, mergeInfo(info, {
+    drawScene($('cO'), sc.original, sun, shO, cam, mergeInfo(info, { scale: true,
       title: 'Plan', sub: when + ' · ' + sunTxt, count: sc.original.mods.length + ' modules',
       total: totalText(outO, enO, prm, D.label), hv: hoverData(outO, enO, prm, D.label)
     }));
-    drawScene($('cA'), sc.alternative, sun, shA, cam, mergeInfo(info, {
+    drawScene($('cA'), sc.alternative, sun, shA, cam, mergeInfo(info, { scale: true,
       title: 'Alternative', sub: when + ' · ' + sunTxt, count: sc.alternative.mods.length + ' modules',
       total: totalText(outA, enA, prm, D.label), hv: hoverData(outA, enA, prm, D.label)
     }));
@@ -1795,18 +1887,43 @@ if (typeof document !== 'undefined') {
     d.moved = true;
     redraw('view');
   }
+  // Photo moves: with the drag box ticked, a press elsewhere in a view drags the photo, so the ground under the pointer stays under
+  // it. Scrolling scales the photo about the ground point under the pointer.
+  function photoMoves() { return !!BG && !!$('bgDrag').checked; }
+  function startPhotoDrag(canvas, p) {
+    var g0 = groundUnder(canvas, p, [BG.east, BG.north]);
+    return g0 ? { last: g0 } : null;
+  }
+  function movePhoto(canvas, d, p) {
+    var g = groundUnder(canvas, p, d.last);
+    if (!g) return;
+    BG.east += g[0] - d.last[0]; BG.north += g[1] - d.last[1];
+    d.last = g;
+    syncBgControls(); redraw('view');
+  }
+  function scalePhoto(canvas, p, f) {
+    var g = groundUnder(canvas, p, [BG.east, BG.north]);
+    if (!g) return;
+    var w0 = BG.widthFt;
+    BG.widthFt = C.clamp(w0 * f, 1, 5000);
+    var k = BG.widthFt / w0;
+    BG.east = g[0] + (BG.east - g[0]) * k; BG.north = g[1] + (BG.north - g[1]) * k;
+    syncBgControls(); redraw('view');
+  }
   function bindCanvas(canvas) {
-    var last = null, downAt = null, drag = null;
+    var last = null, downAt = null, drag = null, photo = null;
     canvas.addEventListener('pointerdown', function (e) {
       downAt = [e.clientX, e.clientY];
       canvas.setPointerCapture(e.pointerId);
-      // A press on a module moves that module's row; a press anywhere else orbits the view.
+      // A press on a module moves that module's row. A press anywhere else orbits the view, or moves the photo when its box is ticked.
       var p = canvasPoint(canvas, e), group = rowUnder(canvas, p);
       drag = group ? startRowDrag(canvas, group, p) : null;
-      last = drag ? null : [e.clientX, e.clientY];
+      photo = !drag && photoMoves() ? startPhotoDrag(canvas, p) : null;
+      last = drag || photo ? null : [e.clientX, e.clientY];
     });
     canvas.addEventListener('pointermove', function (e) {
       if (drag) { moveRow(canvas, drag, canvasPoint(canvas, e)); return; }
+      if (photo) { movePhoto(canvas, photo, canvasPoint(canvas, e)); return; }
       if (!last) { canvas.style.cursor = rowUnder(canvas, canvasPoint(canvas, e)) ? 'move' : ''; return; }
       cam.az = (cam.az + (e.clientX - last[0]) * 0.4 + 360) % 360;
       cam.el = C.clamp(cam.el + (e.clientY - last[1]) * 0.25, 3, 84);
@@ -1814,7 +1931,7 @@ if (typeof document !== 'undefined') {
       redraw('view');
     });
     function end() {
-      last = null;
+      last = null; photo = null;
       if (drag && drag.moved) redraw('full');   // the day and year totals follow the release
       drag = null;
     }
@@ -1836,6 +1953,7 @@ if (typeof document !== 'undefined') {
     });
     canvas.addEventListener('wheel', function (e) {
       e.preventDefault();
+      if (photoMoves()) { scalePhoto(canvas, canvasPoint(canvas, e), Math.exp(-e.deltaY * 0.001)); return; }
       cam.zoom = C.clamp(cam.zoom * Math.exp(-e.deltaY * 0.001), 0.5, 3);
       redraw('view');
     }, { passive: false });
@@ -2558,6 +2676,51 @@ if (typeof document !== 'undefined') {
   // Pasted text is not a file, so the picker is emptied.
   $('useLoadText').addEventListener('click', function () { $('useFile').value = ''; loadUsage($('useText').value); });
   $('useClear').addEventListener('click', clearUsage);
+  // The background photo, read in this page only. Its width, centre, and drag box stay off until a photo loads.
+  function syncBgControls() {
+    var on = !!BG;
+    ['bgWidth', 'bgEast', 'bgNorth', 'bgDrag'].forEach(function (id) { $(id).disabled = !on; });
+    $('bgWidth').value = on ? String(Math.round(BG.widthFt * 10) / 10) : '';
+    $('bgEast').value = on ? String(Math.round(BG.east * 10) / 10) : '';
+    $('bgNorth').value = on ? String(Math.round(BG.north * 10) / 10) : '';
+  }
+  $('bgFile').addEventListener('change', function (e) {
+    var f = e.target.files && e.target.files[0];
+    if (!f) return;
+    var url = URL.createObjectURL(f), img = new Image();
+    img.onload = function () {
+      // The copy that is drawn is at most 1600 pixels on its long side, so the views stay quick.
+      var k = Math.min(1, 1600 / Math.max(img.naturalWidth, img.naturalHeight)), c = document.createElement('canvas');
+      c.width = Math.max(1, Math.round(img.naturalWidth * k)); c.height = Math.max(1, Math.round(img.naturalHeight * k));
+      c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
+      // A new photo keeps the width and place of the one it replaces. The first starts 150 ft wide, its centre 25 ft east, 30 ft north.
+      if (BG) URL.revokeObjectURL(BG.url);
+      BG = Object.assign(BG || { widthFt: 150, east: 25, north: 30 }, { url: url, src: c, id: ++bgId });
+      $('bgStatus').textContent = f.name + ', ' + img.naturalWidth + ' × ' + img.naturalHeight + ' px.';
+      syncBgControls(); redraw('view');
+    };
+    img.onerror = function () {
+      URL.revokeObjectURL(url); e.target.value = '';
+      $('bgStatus').textContent = 'Could not read ' + f.name + ' as an image.';
+    };
+    img.src = url;
+  });
+  $('bgClear').addEventListener('click', function () {
+    if (BG) URL.revokeObjectURL(BG.url);
+    BG = null;
+    $('bgFile').value = ''; $('bgStatus').textContent = '';
+    syncBgControls(); redraw('view');
+  });
+  // Typing a width or a centre moves the photo.
+  [['bgWidth', 'widthFt'], ['bgEast', 'east'], ['bgNorth', 'north']].forEach(function (p) {
+    $(p[0]).addEventListener('change', function () {
+      var v = parseFloat($(p[0]).value);
+      if (!BG || !isFinite(v)) return;
+      BG[p[1]] = p[1] === 'widthFt' ? Math.max(1, v) : v;
+      syncBgControls(); redraw('view');
+    });
+  });
+  syncBgControls();
   ['batKwh', 'batDis', 'batChg', 'batEff'].forEach(function (id) { $(id).addEventListener('change', function () { redraw('full'); }); });
   SITE_FIELDS.forEach(function (id) { $(id).value = SITE_DEFAULTS[id]; });
   $('zoneList').innerHTML = zoneNames().map(function (z) { return '<option value="' + z + '">'; }).join('');

@@ -16,6 +16,9 @@ function makeCtx2d() {
       if (k === 'fillText') { t[k] = (s, x, y) => { (t.__texts = t.__texts || []).push({ text: String(s), x: x, y: y }); }; return t[k]; }
       // Line ends, so a test can see how far a line reaches across the drawing.
       if (k === 'moveTo' || k === 'lineTo') { t[k] = (x, y) => { (t.__pts = t.__pts || []).push({ x: x, y: y }); }; return t[k]; }
+      // The pictures drawn, and the colour each fill used, so a test can see the photo and the sand ground.
+      if (k === 'drawImage') { t[k] = img => { (t.__images = t.__images || []).push(img); }; return t[k]; }
+      if (k === 'fill') { t[k] = () => { (t.__fills = t.__fills || []).push(t.fillStyle); }; return t[k]; }
       t[k] = () => {};
       return t[k];
     },
@@ -74,7 +77,8 @@ const defaults = {
   gr: { width: 640, height: 130 }, grPlan: {}, grAlt: {}, grTitle: {}, grUse: {},
   dg: { width: 640, height: 130 }, dgPlan: {}, dgAlt: {}, dgTitle: {}, dgUse: {},
   useFile: { files: [], value: '' }, useText: { value: '' }, useLoadText: {}, useClear: {}, useStatus: {}, useSum: {},
-  batKwh: { value: '60' }, batDis: { value: '10' }, batChg: { value: '10' }, batEff: { value: '90' }
+  batKwh: { value: '60' }, batDis: { value: '10' }, batChg: { value: '10' }, batEff: { value: '90' },
+  bgFile: { files: [], value: '' }, bgClear: {}, bgStatus: {}, bgWidth: {}, bgEast: {}, bgNorth: {}, bgDrag: {}
 };
 for (const [pre, base] of [['o_', BASE_O], ['a_', BASE_A]]) {
   defaults[pre + 'all_dx'] = { value: '0' };
@@ -112,6 +116,7 @@ const document = {
     return elements[id];
   },
   querySelectorAll() { return []; },
+  createElement(tag) { return makeEl('created ' + tag, tag === 'canvas' ? { width: 640, height: 460 } : {}); },
   addEventListener(type, fn) { (docListeners[type] = docListeners[type] || []).push(fn); }
 };
 const pending = [];
@@ -123,8 +128,21 @@ const fetchUrls = [];
 class FileReaderStub {
   readAsText(f) { pending.push(() => { this.result = f.text; if (this.onload) this.onload(); }); }
 }
+// A picture file: its size comes from the test's file, and the picture loads on the next flush, as a browser does it.
+const imageSizes = {};
+class FakeImage {
+  set src(v) {
+    this._src = v;
+    const s = imageSizes[v] || { w: 100, h: 100 };
+    this.naturalWidth = s.w; this.naturalHeight = s.h;
+    pending.push(() => { if (this.onload) this.onload(); });
+  }
+  get src() { return this._src; }
+}
 const ctx = {
   console: console, Math: Math, JSON: JSON, document: document, setTimeout: fn => pending.push(fn), FileReader: FileReaderStub,
+  Image: FakeImage,
+  URL: { createObjectURL: f => { const u = 'blob:' + f.name; imageSizes[u] = { w: f.width, h: f.height }; return u; }, revokeObjectURL() {} },
   fetch: url => {
     fetchUrls.push(url);
     if (state.mockFail) return Promise.reject(new Error('offline'));
